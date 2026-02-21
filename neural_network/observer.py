@@ -747,8 +747,8 @@ class Observer:
                 "avg_cpu_us": round(evt.cpu_time_total / max(evt.count, 1), 1),
             }
             if torch.cuda.is_available():
-                op["cuda_time_us"] = evt.cuda_time_total
-                op["cuda_time_ms"] = round(evt.cuda_time_total / 1000, 3)
+                op["cuda_time_us"] = getattr(evt, "cuda_time_total", 0) or 0
+                op["cuda_time_ms"] = round(op["cuda_time_us"] / 1000, 3)
             if evt.cpu_memory_usage:
                 op["cpu_mem_bytes"] = evt.cpu_memory_usage
             if hasattr(evt, "cuda_memory_usage") and evt.cuda_memory_usage:
@@ -759,7 +759,7 @@ class Observer:
 
         total_cpu = sum(e.cpu_time_total for e in avgs)
         total_cuda = (
-            sum(e.cuda_time_total for e in avgs) if torch.cuda.is_available() else 0
+            sum(getattr(e, "cuda_time_total", 0) or 0 for e in avgs) if torch.cuda.is_available() else 0
         )
 
         # ── Forward / backward breakdown ──
@@ -796,7 +796,7 @@ class Observer:
                     matched = category
                     break
             cats[matched]["cpu_us"] += evt.cpu_time_total
-            cats[matched]["cuda_us"] += evt.cuda_time_total if torch.cuda.is_available() else 0
+            cats[matched]["cuda_us"] += (getattr(evt, "cuda_time_total", 0) or 0) if torch.cuda.is_available() else 0
             cats[matched]["calls"] += evt.count
 
         categories = {}
@@ -849,9 +849,9 @@ class Observer:
                 if stack_frames:
                     entry["stack_frames"] = stack_frames
                 if torch.cuda.is_available():
-                    entry["cuda_time_us"] = evt.cuda_time_total
+                    entry["cuda_time_us"] = getattr(evt, "cuda_time_total", 0) or 0
                     entry["cuda_time_ms"] = round(
-                        evt.cuda_time_total / 1000, 3
+                        entry["cuda_time_us"] / 1000, 3
                     )
                 top_by_stack.append(entry)
 
