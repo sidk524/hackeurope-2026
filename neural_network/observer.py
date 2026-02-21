@@ -18,6 +18,9 @@ Collects:
   - System resource usage (CPU %, RAM)
   - Forward vs backward pass timing ratio
   - Layer-by-layer parameter and compute cost mapping
+  - Full layer graph for visualization: neuron counts, weight matrix shapes,
+    bias presence, hidden dimensions, data-flow edges, dimension flow summary,
+    initial weight statistics (mean/std/norm), buffers, and parent-child connections
 """
 
 import json
@@ -66,6 +69,9 @@ class ObserverConfig:
     track_console_logs: bool = True
     track_error_logs: bool = True
     track_hyperparameters: bool = True
+
+    # Architecture visualization
+    track_layer_graph: bool = True  # full layer graph: neurons, weight shapes, connections
 
     # System
     track_system_resources: bool = True
@@ -236,8 +242,10 @@ class Observer:
         """
         Register a model for observation.
 
-        This captures the full architecture map (layer types, param counts)
-        and attaches forward hooks for activation / attention monitoring.
+        This captures the full architecture map (layer types, param counts),
+        detailed layer graph (neurons, weight shapes, hidden dimensions,
+        connections between layers), and attaches forward hooks for
+        activation / attention monitoring.
         """
         self._model = model
 
@@ -266,6 +274,10 @@ class Observer:
             "module_tree": self._module_tree(model),
         }
 
+        # ── Full layer graph for visualization ──
+        if self.config.track_layer_graph:
+            self.model_architecture["layer_graph"] = self._build_layer_graph(model)
+
         # ── Attach hooks ──
         if self.config.track_activations:
             self._attach_activation_hooks(model)
@@ -287,6 +299,213 @@ class Observer:
         if children:
             tree["children"] = children
         return tree
+
+    # ------------------------------------------------------------------
+    # Layer graph for architecture visualization
+    # ------------------------------------------------------------------
+
+    def _build_layer_graph(self, model: nn.Module) -> Dict[str, Any]:
+        """
+        Build a full layer graph describing every neuron dimension, weight
+        matrix shape, bias presence, hidden layers, and connections.
+
+        Returns a dict with:
+          - nodes: ordered list of layers with full metadata
+          - edges: connections between layers (source -> target)
+          - sequential_path: the forward-pass order of compute layers
+          - summary: high-level dimension flow
+        """
+        nodes: List[Dict[str, Any]] = []
+        edges: List[Dict[str, Any]] = []
+        sequential_path: List[str] = []
+
+        # Walk every module and extract detailed info
+        for name, module in model.named_modules():
+            if name == "":
+                continue
+
+            node: Dict[str, Any] = {
+                "id": name,
+                "type": type(module).__name__,
+                "is_container": len(list(module.children())) > 0,
+            }
+
+            # ── Per-layer-type details ──
+            if isinstance(module, nn.Linear):
+                node["in_features"] = module.in_features
+                node["out_features"] = module.out_features
+                node["neurons"] = module.out_features
+                node["has_bias"] = module.bias is not None
+                node["weight_shape"] = list(module.weight.shape)
+                if module.bias is not None:
+                    node["bias_shape"] = list(module.bias.shape)
+                node["category"] = "linear"
+
+            elif isinstance(module, nn.Embedding):
+                node["num_embeddings"] = module.num_embeddings
+                node["embedding_dim"] = module.embedding_dim
+                node["neurons"] = module.embedding_dim
+                node["weight_shape"] = list(module.weight.shape)
+                node["padding_idx"] = module.padding_idx
+                node["category"] = "embedding"
+
+            elif isinstance(module, nn.LayerNorm):
+                ns = list(module.normalized_shape)
+                node["normalized_shape"] = ns
+                node["neurons"] = ns[0] if len(ns) == 1 else ns
+                node["has_weight"] = module.weight is not None
+                node["has_bias"] = module.bias is not None
+                node["eps"] = module.eps
+                if module.weight is not None:
+                    node["weight_shape"] = list(module.weight.shape)
+                node["category"] = "normalization"
+
+            elif isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
+                node["num_features"] = module.num_features
+                node["neurons"] = module.num_features
+                node["eps"] = module.eps
+                node["momentum"] = module.momentum
+                node["affine"] = module.affine
+                if module.weight is not None:
+                    node["weight_shape"] = list(module.weight.shape)
+                node["category"] = "normalization"
+
+            elif isinstance(module, nn.Dropout):
+                node["p"] = module.p
+                node["category"] = "regularization"
+
+            elif isinstance(module, (nn.ReLU, nn.GELU, nn.SiLU, nn.Tanh, nn.Sigmoid)):
+                node["category"] = "activation"
+                if hasattr(module, "inplace"):
+                    node["inplace"] = module.inplace
+
+            elif isinstance(module, (nn.Conv1d, nn.Conv2d)):
+                node["in_channels"] = module.in_channels
+                node["out_channels"] = module.out_channels
+                node["kernel_size"] = list(module.kernel_size)
+                node["stride"] = list(module.stride)
+                node["padding"] = list(module.padding)
+                node["has_bias"] = module.bias is not None
+                node["weight_shape"] = list(module.weight.shape)
+                node["neurons"] = module.out_channels
+                node["category"] = "convolution"
+
+            elif isinstance(module, nn.MultiheadAttention):
+                node["embed_dim"] = module.embed_dim
+                node["num_heads"] = module.num_heads
+                node["head_dim"] = module.head_dim
+                node["neurons"] = module.embed_dim
+                node["category"] = "attention"
+
+            elif isinstance(module, nn.Sequential):
+                node["num_children"] = len(module)
+                node["category"] = "container"
+
+            elif isinstance(module, nn.ModuleList):
+                node["num_children"] = len(module)
+                node["category"] = "container"
+
+            else:
+                node["category"] = "custom"
+
+            # ── Collect all weight tensors for this module ──
+            own_params = {}
+            for pname, param in module.named_parameters(recurse=False):
+                own_params[pname] = {
+                    "shape": list(param.shape),
+                    "numel": param.numel(),
+                    "dtype": str(param.dtype),
+                    "requires_grad": param.requires_grad,
+                    "mean": round(param.data.float().mean().item(), 6),
+                    "std": round(param.data.float().std().item(), 6),
+                    "norm": round(param.data.float().norm(2).item(), 6),
+                }
+            if own_params:
+                node["parameters"] = own_params
+                node["total_params"] = sum(p["numel"] for p in own_params.values())
+
+            # ── Collect buffers (e.g. causal masks, running stats) ──
+            own_buffers = {}
+            for bname, buf in module.named_buffers(recurse=False):
+                own_buffers[bname] = {
+                    "shape": list(buf.shape),
+                    "dtype": str(buf.dtype),
+                }
+            if own_buffers:
+                node["buffers"] = own_buffers
+
+            nodes.append(node)
+
+            # Track compute layers for sequential path
+            if not node["is_container"] and node["category"] != "container":
+                sequential_path.append(name)
+
+        # ── Build edges from parent-child relationships ──
+        for name, module in model.named_modules():
+            if name == "":
+                continue
+            for child_name, _ in module.named_children():
+                full_child = f"{name}.{child_name}" if name else child_name
+                edges.append({
+                    "source": name,
+                    "target": full_child,
+                    "relation": "contains",
+                })
+
+        # ── Build data-flow edges for Sequential containers ──
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Sequential):
+                children = list(module.named_children())
+                for i in range(len(children) - 1):
+                    src = f"{name}.{children[i][0]}" if name else children[i][0]
+                    tgt = f"{name}.{children[i+1][0]}" if name else children[i+1][0]
+                    edges.append({
+                        "source": src,
+                        "target": tgt,
+                        "relation": "data_flow",
+                    })
+
+        # ── Build dimension flow summary ──
+        dimension_flow: List[Dict[str, Any]] = []
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear):
+                dimension_flow.append({
+                    "layer": name,
+                    "type": "Linear",
+                    "in": module.in_features,
+                    "out": module.out_features,
+                })
+            elif isinstance(module, nn.Embedding):
+                dimension_flow.append({
+                    "layer": name,
+                    "type": "Embedding",
+                    "vocab": module.num_embeddings,
+                    "dim": module.embedding_dim,
+                })
+            elif isinstance(module, nn.LayerNorm):
+                dimension_flow.append({
+                    "layer": name,
+                    "type": "LayerNorm",
+                    "shape": list(module.normalized_shape),
+                })
+            elif isinstance(module, (nn.Conv1d, nn.Conv2d)):
+                dimension_flow.append({
+                    "layer": name,
+                    "type": type(module).__name__,
+                    "in_ch": module.in_channels,
+                    "out_ch": module.out_channels,
+                    "kernel": list(module.kernel_size),
+                })
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "sequential_path": sequential_path,
+            "dimension_flow": dimension_flow,
+            "total_compute_layers": len(sequential_path),
+            "total_nodes": len(nodes),
+            "total_edges": len(edges),
+        }
 
     # ------------------------------------------------------------------
     # Activation hooks
