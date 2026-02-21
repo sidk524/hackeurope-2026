@@ -781,13 +781,6 @@ class Observer:
         if batch_size and seq_length:
             self._step_tokens_processed += batch_size * seq_length
 
-        # Per-step log to verify backend log push (each step → one log entry on the backend)
-        self._log.info(
-            f"[observer] step={step} loss={loss_val:.6f}"
-            + (f" batch_size={batch_size}" if batch_size else "")
-            + (f" seq_length={seq_length}" if seq_length else "")
-        )
-
     def flush(
         self,
         val_metrics: Optional[Dict[str, Any]] = None,
