@@ -972,7 +972,6 @@ class Observer:
 
         while True:
             status = self._poll_backend_status(rec)
-            self._log.info(f"Session status: {status}")
             if status == "running":
                 return
             if status in ("completed", "stopped"):

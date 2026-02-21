@@ -22,6 +22,7 @@ from models import (
     TrainStep,
 )
 from diagnostics.engine import IssueData, run_diagnostics
+from event_bus import EventType, SSEEvent, publish_from_sync
 from diagnostics.schemas import (
     DiagnosticRunOut,
     DiagnosticRunSummary,
@@ -331,6 +332,13 @@ def run_session_diagnostics(session_id: int, db: SessionDep):
         db.add(db_issue)
         db_issues.append(db_issue)
     db.commit()
+
+    publish_from_sync(SSEEvent(
+        event_type=EventType.diagnostic_completed,
+        project_id=session.project_id,
+        session_id=session_id,
+        data={"health_score": health_score, "issue_count": len(issue_data_list)},
+    ))
 
     # Refresh to get IDs
     for db_issue in db_issues:

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Model, TrainStep } from "@/lib/client";
 
 type TrainSession = {
@@ -562,6 +562,16 @@ type SessionLogListProps = {
 };
 
 function SessionLogList({ session, logs, logsLoading }: SessionLogListProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [follow, setFollow] = useState(true);
+
+  useEffect(() => {
+    if (!follow) return;
+    const el = scrollContainerRef.current;
+    if (!el || logsLoading) return;
+    el.scrollTop = el.scrollHeight;
+  }, [logs.length, logsLoading, follow]);
+
   return (
     <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -574,11 +584,36 @@ function SessionLogList({ session, logs, logsLoading }: SessionLogListProps) {
       </div>
       {session ? (
         <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/80">
-          <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500">
+          <div className="flex items-center justify-between gap-2 border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500">
             <span className="uppercase tracking-[0.2em]">Console</span>
-            <span>{logsLoading ? "Loading…" : `${logs.length} lines`}</span>
+            <div className="flex items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-2">
+                <span className="text-zinc-400">Follow</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={follow}
+                  onClick={() => setFollow((f) => !f)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
+                    follow ? "bg-emerald-500" : "bg-zinc-600"
+                  }`}
+                  title={follow ? "Auto-scroll on (click to turn off)" : "Auto-scroll off (click to turn on)"}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
+                      follow ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                    aria-hidden
+                  />
+                </button>
+              </label>
+              <span>{logsLoading ? "Loading…" : `${logs.length} lines`}</span>
+            </div>
           </div>
-          <div className="max-h-80 overflow-y-auto px-4 py-3 font-mono text-xs text-zinc-200">
+          <div
+            ref={scrollContainerRef}
+            className="max-h-80 overflow-y-auto px-4 py-3 font-mono text-xs text-zinc-200"
+          >
             {logsLoading ? (
               <p className="py-4 text-center text-zinc-500">Loading logs…</p>
             ) : (

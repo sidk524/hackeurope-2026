@@ -22,6 +22,7 @@ import {
   TrainStepList,
 } from "./ProjectTrainingPanels";
 import type { TrainSession as PanelTrainSession } from "./ProjectTrainingPanels";
+import { useEventSource } from "@/lib/use-event-source";
 
 function mapApiSessionToPanel(api: ApiTrainSession): PanelTrainSession {
   return {
@@ -92,6 +93,10 @@ export default function ProjectsClient({
   fontClassName,
 }: ProjectsClientProps) {
   const queryClient = useQueryClient();
+  useEventSource({
+    projectId: null,
+    enabled: true,
+  });
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     getStoredProjectId
   );
@@ -238,7 +243,7 @@ export default function ProjectsClient({
     enabled: sessionIdForModel != null,
     refetchInterval:
       activeSession?.status === "running" || activeSession?.status === "analyzing"
-        ? 2_000
+        ? 30_000
         : false,
   });
 

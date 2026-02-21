@@ -18,6 +18,7 @@ from models import (
     TrainStep,
 )
 from diagnostics.engine import run_diagnostics
+from event_bus import EventType, SSEEvent, event_bus, publish_from_sync
 
 _log = logging.getLogger("sessions.diagnostics")
 
@@ -83,6 +84,12 @@ def create_train_session(project_id: int, train_session: TrainSessionCreate, ses
     session.add(train_session)
     session.commit()
     session.refresh(train_session)
+    publish_from_sync(SSEEvent(
+        event_type=EventType.session_created,
+        project_id=project_id,
+        session_id=train_session.id,
+        data={"run_name": train_session.run_name, "status": train_session.status},
+    ))
     return train_session
 
     
@@ -111,6 +118,12 @@ def update_train_session(session_id: int, train_session_update: TrainSessionUpda
     train_session_db.sqlmodel_update(train_session_update.model_dump(exclude_unset=True))
     session.commit()
     session.refresh(train_session_db)
+    publish_from_sync(SSEEvent(
+        event_type=EventType.session_updated,
+        project_id=train_session_db.project_id,
+        session_id=session_id,
+        data={"status": train_session_db.status},
+    ))
     return train_session_db
 
 
@@ -140,6 +153,12 @@ def session_action(session_id: int, body: SessionActionRequest, session: Session
     session.add(train_session)
     session.commit()
     session.refresh(train_session)
+    publish_from_sync(SSEEvent(
+        event_type=EventType.session_status_changed,
+        project_id=train_session.project_id,
+        session_id=session_id,
+        data={"status": train_session.status, "action": body.action},
+    ))
     return train_session
 
 
@@ -149,6 +168,12 @@ def register_model(session_id: int, model_create_request: ModelCreateRequest, se
     session.add(model_db)
     session.commit()
     session.refresh(model_db)
+    train_session = session.get(TrainSession, session_id)
+    publish_from_sync(SSEEvent(
+        event_type=EventType.model_registered,
+        project_id=train_session.project_id if train_session else None,
+        session_id=session_id,
+    ))
     return model_db
 
     
@@ -303,6 +328,18 @@ def _run_step_diagnostics(session_id: int) -> None:
                 )
                 db.add(train_session)
                 db.commit()
+                publish_from_sync(SSEEvent(
+                    event_type=EventType.diagnostic_completed,
+                    project_id=train_session.project_id,
+                    session_id=session_id,
+                    data={"health_score": health_score, "issue_count": len(issue_data_list)},
+                ))
+                publish_from_sync(SSEEvent(
+                    event_type=EventType.session_status_changed,
+                    project_id=train_session.project_id,
+                    session_id=session_id,
+                    data={"status": train_session.status, "action": "diagnostics"},
+                ))
 
             _log.info(
                 f"Diagnostics for session {session_id}: "
@@ -340,6 +377,12 @@ def register_step(
     session.add(step_db)
     session.commit()
     session.refresh(step_db)
+    publish_from_sync(SSEEvent(
+        event_type=EventType.step_registered,
+        project_id=train_session.project_id,
+        session_id=session_id,
+        data={"step_index": step_db.step_index},
+    ))
     background.add_task(_run_step_diagnostics, session_id)
     return step_db
 
@@ -370,6 +413,12 @@ def create_session_log(session_id: int, body: SessionLogCreate, session: Session
     session.add(log_db)
     session.commit()
     session.refresh(log_db)
+    publish_from_sync(SSEEvent(
+        event_type=EventType.log_created,
+        project_id=train_session.project_id,
+        session_id=session_id,
+        data={"level": body.level, "kind": body.kind},
+    ))
     return log_db
 
 
