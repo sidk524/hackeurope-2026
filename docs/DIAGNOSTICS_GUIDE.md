@@ -988,8 +988,8 @@ self.conv2 = nn.Conv2d(8, 16, 3)  # Gradual increase
   "session_id": 123,
   "health_score": 73,
   "severity_counts": {"critical": 0, "warning": 3, "info": 2},
-  "top_issues": [...],
-  "top_layers": [...]
+  "issues": [...],
+  "layers": [...]
 }
 ```
 

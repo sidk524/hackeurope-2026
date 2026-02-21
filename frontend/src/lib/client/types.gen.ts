@@ -50,8 +50,8 @@ export type HealthOut = {
     severity_counts: {
         [key: string]: number;
     };
-    top_issues: Array<IssueOut>;
-    top_layers: Array<LayerHighlight>;
+    issues: Array<IssueOut>;
+    layers: Array<LayerHighlight>;
 };
 
 export type IssueCategory = 'loss' | 'throughput' | 'memory' | 'profiler' | 'logs' | 'system' | 'architecture' | 'sustainability';

@@ -882,8 +882,8 @@ class Observer:
         if self.config.track_carbon_emissions and self._carbon_tracker:
             try:
                 cumulative_co2 = self._carbon_tracker.flush() or 0.0
-                # Access tracker's internal output for energy data
-                data = self._carbon_tracker._output
+                # Use public API: final_emissions_data is updated after flush()
+                data = self._carbon_tracker.final_emissions_data
                 cumulative_energy = (
                     getattr(data, "energy_consumed", 0.0) if data else 0.0
                 )

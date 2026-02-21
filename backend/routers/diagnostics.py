@@ -470,12 +470,12 @@ def get_session_health(session_id: int, db: SessionDep):
             session_id=session_id,
             health_score=latest_run.health_score,
             severity_counts=_severity_counts(issues_out),
-            top_issues=sorted(
+            issues=sorted(
                 issues_out,
                 key=lambda x: _SEVERITY_WEIGHT.get(x.severity, 0),
                 reverse=True,
-            )[:5],
-            top_layers=_build_layer_highlights(issues_out, arch)[:3],
+            ),
+            layers=_build_layer_highlights(issues_out, arch),
         )
 
     # Compute on-the-fly
@@ -517,12 +517,12 @@ def get_session_health(session_id: int, db: SessionDep):
         session_id=session_id,
         health_score=health_score,
         severity_counts=_severity_counts(issues_out),
-        top_issues=sorted(
+        issues=sorted(
             issues_out,
             key=lambda x: _SEVERITY_WEIGHT.get(x.severity, 0),
             reverse=True,
-        )[:5],
-        top_layers=_build_layer_highlights(issues_out, arch)[:3],
+        ),
+        layers=_build_layer_highlights(issues_out, arch),
     )
 
 

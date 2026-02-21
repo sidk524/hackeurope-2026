@@ -96,8 +96,8 @@ class HealthOut(BaseModel):
     session_id: int
     health_score: int
     severity_counts: dict[str, int]   # {"critical": n, "warning": n, "info": n}
-    top_issues: list[IssueOut]
-    top_layers: list[LayerHighlight]
+    issues: list[IssueOut]
+    layers: list[LayerHighlight]
 
 
 class SessionTrendItem(BaseModel):
