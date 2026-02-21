@@ -311,9 +311,11 @@ export default function ProjectsClient({
 
   return (
     <div className={`${fontClassName} min-h-screen bg-zinc-900 text-zinc-100`}>
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+      <div className="group fixed bottom-6 right-6 z-50 flex items-center gap-2">
         {lastRefreshLabel ? (
-          <span className="text-xs text-zinc-500">{lastRefreshLabel}</span>
+          <span className="text-xs text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
+            {lastRefreshLabel}
+          </span>
         ) : null}
         <button
           type="button"
