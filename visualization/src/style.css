@@ -17,3 +17,177 @@ body {
 canvas {
   display: block;
 }
+
+.zoom-controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.zoom-controls button {
+  width: 50px;
+  height: 50px;
+  border: 2px solid #ffffff;
+  background-color: rgba(26, 26, 46, 0.8);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.zoom-controls button:hover {
+  background-color: rgba(78, 205, 196, 0.9);
+  border-color: #4ecdc4;
+  transform: scale(1.05);
+}
+
+.zoom-controls button:active {
+  transform: scale(0.95);
+}
+
+/* Menu Toggle Button */
+.menu-toggle {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  width: 50px;
+  height: 50px;
+  border: 2px solid #ffffff;
+  background-color: rgba(26, 26, 46, 0.8);
+  color: #ffffff;
+  font-size: 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  z-index: 1001;
+}
+
+.menu-toggle:hover {
+  background-color: rgba(78, 205, 196, 0.9);
+  border-color: #4ecdc4;
+  transform: scale(1.05);
+}
+
+.menu-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Side Menu */
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: -300px;
+  width: 300px;
+  height: 100vh;
+  background-color: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(10px);
+  border-right: 2px solid rgba(78, 205, 196, 0.3);
+  padding: 80px 20px 20px 20px;
+  transition: left 0.3s ease;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.side-menu.open {
+  left: 0;
+}
+
+.side-menu h2 {
+  color: #4ecdc4;
+  margin-bottom: 20px;
+  font-size: 24px;
+  border-bottom: 2px solid rgba(78, 205, 196, 0.3);
+  padding-bottom: 10px;
+}
+
+.menu-button {
+  width: 100%;
+  padding: 15px;
+  margin-bottom: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.menu-button:hover {
+  background-color: rgba(78, 205, 196, 0.3);
+  border-color: #4ecdc4;
+  transform: translateX(5px);
+}
+
+.menu-button:active {
+  transform: translateX(5px) scale(0.98);
+}
+
+/* Layer tooltip */
+.layer-tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: rgba(10, 10, 26, 0.92);
+  border: 1px solid rgba(78, 205, 196, 0.4);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #ffffff;
+  font-size: 13px;
+  min-width: 180px;
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.layer-tooltip.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tooltip-title {
+  color: #4ecdc4;
+  font-size: 15px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(78, 205, 196, 0.25);
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tooltip-value {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.tooltip-action {
+  margin-top: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(78, 205, 196, 0.45);
+  border-radius: 6px;
+  background: rgba(78, 205, 196, 0.2);
+  color: #d8fffb;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.tooltip-action:hover {
+  background: rgba(78, 205, 196, 0.32);
+}
