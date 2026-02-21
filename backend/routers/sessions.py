@@ -243,12 +243,23 @@ def _run_step_diagnostics(session_id: int) -> None:
             # Set session status based on results
             train_session = db.get(TrainSession, session_id)
             if train_session:
-                has_issues = any(
-                    i.severity in (IssueSeverity.critical, IssueSeverity.warning)
+                has_critical = any(
+                    i.severity == IssueSeverity.critical
                     for i in issue_data_list
                 )
+                # Count warnings per layer
+                warnings_per_layer: dict[str | None, int] = {}
+                for i in issue_data_list:
+                    if i.severity == IssueSeverity.warning and i.layer_id:
+                        warnings_per_layer[i.layer_id] = (
+                            warnings_per_layer.get(i.layer_id, 0) + 1
+                        )
+                has_warning_cluster = any(
+                    count >= 3 for count in warnings_per_layer.values()
+                )
                 train_session.status = (
-                    SessionStatus.pending if has_issues
+                    SessionStatus.pending
+                    if has_critical or has_warning_cluster
                     else SessionStatus.running
                 )
                 db.add(train_session)
