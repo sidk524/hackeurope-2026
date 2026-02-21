@@ -1,0 +1,28 @@
+# Build directories
+build/
+cmake-build-*/
+
+# Compiled files
+*.o
+*.so
+*.a
+*.exe
+NeuralNetVisualization
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# GLAD (downloaded)
+include/glad/
+include/KHR/
+src/glad.c
