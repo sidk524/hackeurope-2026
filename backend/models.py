@@ -18,6 +18,23 @@ class LogKind(str, Enum):
     error = "error"
 
 
+class IssueSeverity(str, Enum):
+    critical = "critical"
+    warning = "warning"
+    info = "info"
+
+
+class IssueCategory(str, Enum):
+    loss = "loss"
+    throughput = "throughput"
+    memory = "memory"
+    profiler = "profiler"
+    logs = "logs"
+    system = "system"
+    architecture = "architecture"
+    sustainability = "sustainability"
+
+
 class Project(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
     name: str
@@ -45,6 +62,7 @@ class TrainSession(SQLModel, table=True):
     steps: list["TrainStep"] = Relationship(back_populates="session")
     session_logs: list["SessionLog"] = Relationship(back_populates="session")
     models: list["Model"] = Relationship(back_populates="session")
+    diagnostic_runs: list["DiagnosticRun"] = Relationship(back_populates="session")
 
 
 class Model(SQLModel, table=True):
@@ -77,3 +95,32 @@ class SessionLog(SQLModel, table=True):
     kind: LogKind = LogKind.console
 
     session: TrainSession = Relationship(back_populates="session_logs")
+
+
+class DiagnosticRun(SQLModel, table=True):
+    id: int | None = Field(primary_key=True, default=None)
+    session_id: int = Field(foreign_key="trainsession.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    health_score: int = 100
+    issue_count: int = 0
+    arch_type: str = "generic"
+    summary_json: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON()))
+
+    session: TrainSession = Relationship(back_populates="diagnostic_runs")
+    issues: list["DiagnosticIssue"] = Relationship(back_populates="run")
+
+
+class DiagnosticIssue(SQLModel, table=True):
+    id: int | None = Field(primary_key=True, default=None)
+    run_id: int = Field(foreign_key="diagnosticrun.id")
+    severity: IssueSeverity
+    category: IssueCategory
+    title: str
+    description: str
+    epoch_index: int | None = Field(default=None, nullable=True)
+    layer_id: str | None = Field(default=None, nullable=True)
+    metric_key: str | None = Field(default=None, nullable=True)
+    metric_value: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON()))
+    suggestion: str = ""
+
+    run: DiagnosticRun = Relationship(back_populates="issues")

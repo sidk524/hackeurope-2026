@@ -2,3 +2,4 @@ torch[cuda]
 psutil
 pydantic
 torchvision
+codecarbon

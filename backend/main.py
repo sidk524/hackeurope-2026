@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import ProgrammingError as SQLAlchemyProgrammingError
 
-from routers import (projects, sessions)
+from routers import projects, sessions, diagnostics
 
 fastapi = FastAPI()
 
@@ -19,3 +19,4 @@ fastapi.add_middleware(
 
 fastapi.include_router(projects.router)
 fastapi.include_router(sessions.router)
+fastapi.include_router(diagnostics.router)

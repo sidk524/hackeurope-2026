@@ -13,6 +13,7 @@ Collects:
 
 import json
 import logging
+import math
 import os
 import sys
 import time
@@ -63,6 +64,16 @@ class ObserverConfig:
     # with_stack is auto-enabled when group_by_stack_n > 0. Stack depth is often 5 (PyTorch limit).
     profiler_group_by_stack_n: int = 0
     profiler_top_n_stacks: int = 20
+
+    # GreenAI / layer health
+    track_sustainability: bool = True       # sustainability metrics (layer efficiency, marginal loss, compute costs)
+    track_layer_health: bool = True         # persistent activation/gradient hooks (some overhead per batch)
+    layer_health_zero_threshold: float = 1e-6  # threshold for "near-zero" weights/activations
+
+    # Carbon emissions (CodeCarbon)
+    track_carbon_emissions: bool = True          # enable CO2/energy tracking via CodeCarbon
+    carbon_tracker_mode: str = "online"          # "online" (real-time grid data) or "offline" (static country data)
+    carbon_country_iso: str = "IRL"              # ISO 3166-1 alpha-3, used as fallback or for offline mode
 
     # Log level for the observer's own logger
     log_level: int = logging.INFO
@@ -170,6 +181,16 @@ class Observer:
 
         self._model: Optional[nn.Module] = None
 
+        # ── Layer health (per-epoch, reset in _start_epoch) ──
+        self._layer_activation_stats: Dict[str, List[Dict]] = defaultdict(list)
+        self._layer_gradient_stats: Dict[str, List[Dict]] = defaultdict(list)
+        self._health_hooks: List[Any] = []  # persistent hook handles, removed in close()
+
+        # ── Carbon emissions (CodeCarbon) ──
+        self._carbon_tracker: Optional[Any] = None       # lazily initialized
+        self._carbon_prev_emissions: float = 0.0         # cumulative CO2 at previous flush
+        self._carbon_prev_energy: float = 0.0            # cumulative energy at previous flush
+
         # ── Observer logger ──
         self._log = logging.getLogger(f"observer.{self.run_id}")
         self._log.setLevel(self.config.log_level)
@@ -249,6 +270,17 @@ class Observer:
         if self.config.track_layer_graph:
             self.model_architecture["layer_graph"] = self._build_layer_graph(model)
 
+        # ── Layer health hooks ──
+        if self.config.track_layer_health:
+            param_layers = self._get_parameter_layers(model)
+            for name, module in param_layers:
+                h1 = module.register_forward_hook(self._make_activation_hook(name))
+                h2 = module.register_full_backward_hook(self._make_gradient_hook(name))
+                self._health_hooks.extend([h1, h2])
+            self._log.info(
+                f"Layer health hooks registered on {len(param_layers)} layers"
+            )
+
         self._log.info(
             f"Model registered | {total_params:,} params "
             f"({total_params / 1e6:.2f}M) | {len(layer_map)} param layers"
@@ -264,6 +296,48 @@ class Observer:
         if children:
             tree["children"] = children
         return tree
+
+    # ------------------------------------------------------------------
+    # Layer health hooks (persistent, fire every batch)
+    # ------------------------------------------------------------------
+
+    def _make_activation_hook(self, layer_name: str):
+        """Create a forward hook that captures per-batch activation statistics."""
+        threshold = self.config.layer_health_zero_threshold
+
+        def hook(module, input, output):
+            if not isinstance(output, torch.Tensor):
+                return
+            with torch.no_grad():
+                out = output.detach().float()
+                self._layer_activation_stats[layer_name].append({
+                    "mean": out.mean().item(),
+                    "std": out.std().item(),
+                    "var": out.var().item(),
+                    "sparsity": (out.abs() < threshold).float().mean().item(),
+                    "norm": out.norm(2).item(),
+                })
+
+        return hook
+
+    def _make_gradient_hook(self, layer_name: str):
+        """Create a backward hook that captures per-batch gradient flow statistics."""
+        threshold = self.config.layer_health_zero_threshold
+
+        def hook(module, grad_input, grad_output):
+            g = grad_output[0] if grad_output and grad_output[0] is not None else None
+            if g is None:
+                return
+            with torch.no_grad():
+                g = g.detach().float()
+                self._layer_gradient_stats[layer_name].append({
+                    "norm": g.norm(2).item(),
+                    "mean": g.mean().item(),
+                    "std": g.std().item(),
+                    "sparsity": (g.abs() < threshold).float().mean().item(),
+                })
+
+        return hook
 
     # ------------------------------------------------------------------
     # Layer graph for architecture visualization
@@ -473,6 +547,43 @@ class Observer:
         }
 
     # ==================================================================
+    # Carbon emissions (CodeCarbon)
+    # ==================================================================
+
+    def _init_carbon_tracker(self):
+        """Lazily initialize CodeCarbon emissions tracker."""
+        if self._carbon_tracker is not None or not self.config.track_carbon_emissions:
+            return
+        try:
+            from codecarbon import OfflineEmissionsTracker, EmissionsTracker
+            if self.config.carbon_tracker_mode == "online":
+                self._carbon_tracker = EmissionsTracker(
+                    log_level="error",
+                    save_to_file=False,
+                    save_to_api=False,
+                )
+            else:
+                self._carbon_tracker = OfflineEmissionsTracker(
+                    country_iso_code=self.config.carbon_country_iso,
+                    log_level="error",
+                    save_to_file=False,
+                    save_to_api=False,
+                )
+            self._carbon_tracker.start()
+            self._log.info(
+                f"CodeCarbon tracker started ({self.config.carbon_tracker_mode} mode)"
+            )
+        except ImportError:
+            self._log.warning(
+                "codecarbon not installed; carbon tracking disabled. "
+                "pip install codecarbon"
+            )
+            self.config.track_carbon_emissions = False
+        except Exception as e:
+            self._log.warning(f"CodeCarbon init failed: {e}; carbon tracking disabled")
+            self.config.track_carbon_emissions = False
+
+    # ==================================================================
     # Epoch lifecycle
     # ==================================================================
 
@@ -485,6 +596,12 @@ class Observer:
         self._epoch_tokens_processed = 0
         self._epoch_samples_processed = 0
         self._profiler_snapshot = None
+        self._layer_activation_stats.clear()
+        self._layer_gradient_stats.clear()
+
+        # Lazy-init carbon tracker on first epoch
+        if self.config.track_carbon_emissions and self._carbon_tracker is None:
+            self._init_carbon_tracker()
 
         if torch.cuda.is_available() and self.config.track_memory:
             torch.cuda.reset_peak_memory_stats()
@@ -623,6 +740,51 @@ class Observer:
             "console": len(self.console_logs),
             "error": len(self.error_logs),
         }
+
+        # ── Layer health ──
+        if self.config.track_layer_health and self._model:
+            rec["layer_health"] = self._compute_layer_health()
+
+        # ── Sustainability ──
+        if self.config.track_sustainability:
+            rec["sustainability"] = self._compute_sustainability(rec, epoch)
+
+        # ── Carbon emissions (CodeCarbon) ──
+        if self.config.track_carbon_emissions and self._carbon_tracker:
+            try:
+                cumulative_co2 = self._carbon_tracker.flush() or 0.0
+                # Access tracker's internal output for energy data
+                data = self._carbon_tracker._output
+                cumulative_energy = (
+                    getattr(data, "energy_consumed", 0.0) if data else 0.0
+                )
+
+                epoch_co2 = cumulative_co2 - self._carbon_prev_emissions
+                epoch_energy = cumulative_energy - self._carbon_prev_energy
+
+                samples = rec.get("throughput", {}).get("samples_processed", 0)
+
+                rec["carbon_emissions"] = {
+                    "epoch_co2_kg": round(epoch_co2, 10),
+                    "epoch_energy_kwh": round(epoch_energy, 10),
+                    "cumulative_co2_kg": round(cumulative_co2, 10),
+                    "cumulative_energy_kwh": round(cumulative_energy, 10),
+                    "co2_per_sample_kg": round(
+                        epoch_co2 / max(samples, 1), 12
+                    ),
+                    "co2_per_second_kg": round(
+                        epoch_co2 / max(duration, 1e-9), 12
+                    ),
+                    "power_draw_watts": round(
+                        epoch_energy * 3.6e6 / max(duration, 1e-9), 2
+                    ),  # kWh -> J / s = W
+                    "country_iso_code": self.config.carbon_country_iso,
+                }
+
+                self._carbon_prev_emissions = cumulative_co2
+                self._carbon_prev_energy = cumulative_energy
+            except Exception as e:
+                self._log.warning(f"Carbon snapshot failed: {e}")
 
         self.epoch_data.append(rec)
 
@@ -960,6 +1122,216 @@ class Observer:
         return stats
 
     # ==================================================================
+    # Layer health & sustainability
+    # ==================================================================
+
+    def _compute_layer_health(self) -> Dict[str, Any]:
+        """
+        Aggregate per-batch activation/gradient stats into per-layer summaries.
+        Also snapshot current weight tensor statistics from the model.
+        """
+        result: Dict[str, Any] = {"layers": {}, "activation_correlations": []}
+        if not self._model:
+            return result
+
+        threshold = self.config.layer_health_zero_threshold
+        param_layers = self._get_parameter_layers(self._model)
+        sequential_names = [name for name, _ in param_layers]
+
+        for name, module in param_layers:
+            layer_data: Dict[str, Any] = {}
+
+            # ── Activation health ──
+            act_stats = self._layer_activation_stats.get(name, [])
+            if act_stats:
+                means = [s["mean"] for s in act_stats]
+                stds = [s["std"] for s in act_stats]
+                sparsities = [s["sparsity"] for s in act_stats]
+                n = len(means)
+                act_mean = sum(means) / n
+                act_var_of_means = (
+                    sum((m - act_mean) ** 2 for m in means) / n if n > 1 else 0.0
+                )
+                layer_data["activation_mean"] = round(act_mean, 6)
+                layer_data["activation_std"] = round(sum(stds) / n, 6)
+                layer_data["activation_var_of_means"] = round(act_var_of_means, 10)
+                layer_data["activation_sparsity"] = round(sum(sparsities) / n, 6)
+                layer_data["num_batches"] = n
+            else:
+                layer_data["activation_mean"] = None
+                layer_data["num_batches"] = 0
+
+            # ── Gradient health ──
+            grad_stats = self._layer_gradient_stats.get(name, [])
+            if grad_stats:
+                norms = [s["norm"] for s in grad_stats]
+                sparsities_g = [s["sparsity"] for s in grad_stats]
+                gn = len(norms)
+                grad_norm_mean = sum(norms) / gn
+                grad_norm_std = (
+                    (sum((n_ - grad_norm_mean) ** 2 for n_ in norms) / gn) ** 0.5
+                    if gn > 1 else 0.0
+                )
+                layer_data["gradient_norm_mean"] = round(grad_norm_mean, 8)
+                layer_data["gradient_norm_std"] = round(grad_norm_std, 8)
+                layer_data["gradient_sparsity"] = round(sum(sparsities_g) / gn, 6)
+            else:
+                layer_data["gradient_norm_mean"] = None
+
+            # ── Weight health (snapshot) ──
+            try:
+                weight = None
+                for pname, param in module.named_parameters(recurse=False):
+                    if "weight" in pname:
+                        weight = param
+                        break
+                if weight is not None:
+                    with torch.no_grad():
+                        w = weight.detach().float()
+                        layer_data["weight_sparsity"] = round(
+                            (w.abs() < threshold).float().mean().item(), 6
+                        )
+                        layer_data["weight_mean"] = round(w.abs().mean().item(), 6)
+                        layer_data["weight_std"] = round(w.std().item(), 6)
+                        layer_data["weight_norm"] = round(w.norm(2).item(), 6)
+            except Exception:
+                pass
+
+            # ── Derived flags ──
+            act_var = layer_data.get("activation_var_of_means")
+            w_sparsity = layer_data.get("weight_sparsity", 0)
+            g_norm = layer_data.get("gradient_norm_mean")
+            act_std = layer_data.get("activation_std")
+
+            layer_data["is_dead"] = (
+                act_var is not None and act_var < 1e-8
+                and w_sparsity > 0.9
+            )
+            layer_data["has_frozen_output"] = (
+                act_var is not None and act_var < 1e-8
+            )
+            layer_data["has_vanishing_gradients"] = (
+                g_norm is not None and g_norm < 1e-7
+            )
+            layer_data["has_near_zero_weights"] = w_sparsity > 0.5
+            layer_data["has_low_activation_variance"] = (
+                act_std is not None and act_std < 1e-6
+            )
+
+            result["layers"][name] = layer_data
+
+        # ── Activation correlations between consecutive layers ──
+        for i in range(len(sequential_names) - 1):
+            name_a = sequential_names[i]
+            name_b = sequential_names[i + 1]
+            means_a = [s["mean"] for s in self._layer_activation_stats.get(name_a, [])]
+            means_b = [s["mean"] for s in self._layer_activation_stats.get(name_b, [])]
+            n = min(len(means_a), len(means_b))
+            if n < 5:
+                continue
+            means_a, means_b = means_a[:n], means_b[:n]
+            avg_a = sum(means_a) / n
+            avg_b = sum(means_b) / n
+            cov = sum((a - avg_a) * (b - avg_b) for a, b in zip(means_a, means_b)) / n
+            std_a = (sum((a - avg_a) ** 2 for a in means_a) / n) ** 0.5
+            std_b = (sum((b - avg_b) ** 2 for b in means_b) / n) ** 0.5
+            denom = std_a * std_b
+            corr = round(cov / denom, 6) if denom > 1e-12 else 0.0
+            if abs(corr) > 0.8:
+                result["activation_correlations"].append({
+                    "layer_a": name_a,
+                    "layer_b": name_b,
+                    "correlation": corr,
+                })
+
+        return result
+
+    def _compute_sustainability(self, rec: Dict[str, Any], epoch: int) -> Dict[str, Any]:
+        """
+        Derive sustainability metrics from existing epoch data:
+        layer efficiency, marginal loss, compute cost, cumulative compute.
+        """
+        sus: Dict[str, Any] = {}
+
+        # ── Per-layer compute efficiency ──
+        per_layer = (rec.get("profiler") or {}).get("per_layer", [])
+        arch_layers = self.model_architecture.get("layers", {})
+        if per_layer and arch_layers:
+            layer_efficiency = []
+            for pl in per_layer:
+                layer_name = pl.get("layer", "")
+                arch_info = arch_layers.get(layer_name)
+                if arch_info:
+                    pct_compute = pl.get("pct_total", 0)
+                    pct_params = arch_info.get("pct_of_total", 0)
+                    ratio = round(pct_compute / max(pct_params, 0.01), 4)
+                    layer_efficiency.append({
+                        "layer": layer_name,
+                        "pct_compute": pct_compute,
+                        "pct_parameters": pct_params,
+                        "compute_to_param_ratio": ratio,
+                    })
+            sus["layer_efficiency"] = layer_efficiency
+
+        # ── Marginal loss improvement ──
+        curr_loss = (rec.get("loss") or {}).get("train_mean")
+        if curr_loss is not None and self.epoch_data:
+            prev_loss = (self.epoch_data[-1].get("loss") or {}).get("train_mean")
+            if prev_loss is not None and prev_loss > 0:
+                abs_imp = round(prev_loss - curr_loss, 6)
+                pct_imp = round(100 * abs_imp / prev_loss, 4)
+                first_loss = (self.epoch_data[0].get("loss") or {}).get(
+                    "train_mean", prev_loss
+                )
+                cum_imp = round(first_loss - curr_loss, 6)
+                moc = (
+                    round(abs_imp / max(cum_imp, 1e-9), 4)
+                    if cum_imp > 0 else None
+                )
+                sus["marginal_loss"] = {
+                    "previous_loss": prev_loss,
+                    "current_loss": curr_loss,
+                    "absolute_improvement": abs_imp,
+                    "pct_improvement": pct_imp,
+                    "cumulative_improvement": cum_imp,
+                    "marginal_over_cumulative": moc,
+                }
+        elif curr_loss is not None:
+            sus["marginal_loss"] = {
+                "previous_loss": None,
+                "current_loss": curr_loss,
+                "absolute_improvement": None,
+                "pct_improvement": None,
+                "cumulative_improvement": 0.0,
+                "marginal_over_cumulative": None,
+            }
+
+        # ── Epoch compute cost ──
+        sus["epoch_compute_cost"] = {
+            "duration_seconds": rec.get("duration_seconds", 0),
+            "profiler_cpu_time_ms": (rec.get("profiler") or {}).get("total_cpu_time_ms"),
+            "profiler_cuda_time_ms": (rec.get("profiler") or {}).get("total_cuda_time_ms"),
+            "samples_processed": (rec.get("throughput") or {}).get("samples_processed", 0),
+            "samples_per_second": (rec.get("throughput") or {}).get("samples_per_second"),
+        }
+
+        # ── Cumulative compute ──
+        cum_duration = sum(
+            e.get("duration_seconds", 0) for e in self.epoch_data
+        ) + rec.get("duration_seconds", 0)
+        cum_samples = sum(
+            (e.get("throughput") or {}).get("samples_processed", 0)
+            for e in self.epoch_data
+        ) + (rec.get("throughput") or {}).get("samples_processed", 0)
+        sus["cumulative_compute"] = {
+            "total_duration_seconds": round(cum_duration, 4),
+            "total_samples_processed": cum_samples,
+            "epochs_completed": len(self.epoch_data) + 1,
+        }
+
+        return sus
+
+    # ==================================================================
     # Export
     # ==================================================================
 
@@ -1055,6 +1427,107 @@ class Observer:
                 }
                 break
 
+        # ── Sustainability summary ──
+        sustainability_summary: Dict[str, Any] = {}
+
+        # Optimal stop & wasted compute
+        if len(means) > 2:
+            first_loss = means[0]
+            optimal_stop = len(means) - 1
+            for i in range(2, len(means)):
+                cum_imp = first_loss - means[i]
+                marginal_imp = means[i - 1] - means[i]
+                if cum_imp > 0 and marginal_imp / cum_imp < 0.05:
+                    optimal_stop = i - 1
+                    break
+
+            total_dur = sum(e.get("duration_seconds", 0) for e in self.epoch_data)
+            wasted_dur = sum(
+                e.get("duration_seconds", 0)
+                for e in self.epoch_data[optimal_stop + 1:]
+            )
+            wasted_pct = round(100 * wasted_dur / max(total_dur, 1e-9), 2)
+            sustainability_summary["optimal_stop_epoch"] = optimal_stop
+            sustainability_summary["wasted_epochs"] = len(self.epoch_data) - 1 - optimal_stop
+            sustainability_summary["wasted_compute_pct"] = wasted_pct
+            sustainability_summary["wasted_duration_seconds"] = round(wasted_dur, 2)
+
+        # Parameter efficiency score
+        last_sus = None
+        for e in reversed(self.epoch_data):
+            le = (e.get("sustainability") or {}).get("layer_efficiency")
+            if le:
+                last_sus = le
+                break
+        if last_sus:
+            ratios = [le_item["compute_to_param_ratio"] for le_item in last_sus]
+            deviations = [abs(math.log2(max(r, 0.001))) for r in ratios]
+            avg_dev = sum(deviations) / len(deviations) if deviations else 0
+            sustainability_summary["parameter_efficiency_score"] = max(
+                0, round(100 - avg_dev * 20, 1)
+            )
+
+        # Dead / vanishing / frozen layers (from last epoch's layer_health)
+        last_health = None
+        for e in reversed(self.epoch_data):
+            lh = e.get("layer_health")
+            if lh:
+                last_health = lh
+                break
+        if last_health:
+            layers_data = last_health.get("layers", {})
+            sustainability_summary["dead_layers"] = [
+                name for name, d in layers_data.items() if d.get("is_dead")
+            ]
+            sustainability_summary["vanishing_gradient_layers"] = [
+                name for name, d in layers_data.items()
+                if d.get("has_vanishing_gradients")
+            ]
+            sustainability_summary["frozen_output_layers"] = [
+                name for name, d in layers_data.items()
+                if d.get("has_frozen_output")
+            ]
+
+        # Carbon totals
+        carbon_epochs = [
+            e["carbon_emissions"]
+            for e in self.epoch_data
+            if e.get("carbon_emissions")
+        ]
+        if carbon_epochs:
+            total_co2 = sum(c["epoch_co2_kg"] for c in carbon_epochs)
+            total_energy = sum(c["epoch_energy_kwh"] for c in carbon_epochs)
+            total_samples = sum(
+                e.get("throughput", {}).get("samples_processed", 0)
+                for e in self.epoch_data
+            )
+            sustainability_summary["total_co2_kg"] = round(total_co2, 8)
+            sustainability_summary["total_energy_kwh"] = round(total_energy, 8)
+            sustainability_summary["co2_per_epoch_avg_kg"] = round(
+                total_co2 / len(carbon_epochs), 10
+            )
+            sustainability_summary["co2_per_1k_samples_kg"] = (
+                round(total_co2 / max(total_samples / 1000, 1e-9), 10)
+                if total_samples
+                else None
+            )
+            sustainability_summary["avg_power_draw_watts"] = round(
+                sum(c["power_draw_watts"] for c in carbon_epochs)
+                / len(carbon_epochs),
+                2,
+            )
+            # Wasted carbon (epochs past optimal stop)
+            if "optimal_stop_epoch" in sustainability_summary:
+                opt = sustainability_summary["optimal_stop_epoch"]
+                wasted_carbon = sum(
+                    e.get("carbon_emissions", {}).get("epoch_co2_kg", 0)
+                    for e in self.epoch_data[opt + 1 :]
+                )
+                sustainability_summary["wasted_co2_kg"] = round(wasted_carbon, 10)
+
+        if sustainability_summary:
+            summary["sustainability"] = sustainability_summary
+
         return summary
 
     # ==================================================================
@@ -1062,10 +1535,20 @@ class Observer:
     # ==================================================================
 
     def close(self):
-        """Finalize session metadata and remove log handlers."""
+        """Finalize session metadata and remove log/health handlers."""
         for h in self._capture_handlers:
             logging.getLogger().removeHandler(h)
         self._capture_handlers.clear()
+        for h in self._health_hooks:
+            h.remove()
+        self._health_hooks.clear()
+        # Stop CodeCarbon tracker
+        if self._carbon_tracker:
+            try:
+                self._carbon_tracker.stop()
+            except Exception:
+                pass
+            self._carbon_tracker = None
         self.session["ended_at"] = datetime.now().isoformat()
         self._log.info("Observer closed.")
 
