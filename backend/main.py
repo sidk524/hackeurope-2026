@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import ProgrammingError as SQLAlchemyProgrammingError
 
 from event_bus import set_event_loop
-from routers import projects, sessions, diagnostics, events
+from routers import projects, sessions, diagnostics, events, llm
 
 fastapi = FastAPI()
 
@@ -26,6 +26,7 @@ fastapi.include_router(projects.router)
 fastapi.include_router(sessions.router)
 fastapi.include_router(diagnostics.router)
 fastapi.include_router(events.router)
+fastapi.include_router(llm.router)
 
 
 @fastapi.on_event("startup")
