@@ -54,6 +54,7 @@ class ObserverConfig:
 
     # Profiler tuning
     profile_at_step: Optional[int] = 0  # Which step within each epoch to profile (None = never)
+    profile_every_n_steps: Optional[int] = None  # Profile every N steps (overrides profile_at_step when set)
     profiler_record_shapes: bool = True
     profiler_profile_memory: bool = True
     profiler_with_stack: bool = False
@@ -491,10 +492,18 @@ class Observer:
         self._log.info(f"--- Epoch {epoch} started ---")
 
     def should_profile(self, step: int) -> bool:
-        """Return True if profiling should run on this step."""
+        """Return True if profiling should run on this step.
+
+        When ``profile_every_n_steps`` is set, profiles every N-th step
+        (i.e. steps 0, N, 2N, …).  Otherwise falls back to the single
+        ``profile_at_step`` behaviour.
+        """
+        if not self.config.track_profiler:
+            return False
+        if self.config.profile_every_n_steps is not None:
+            return step % self.config.profile_every_n_steps == 0
         return (
-            self.config.track_profiler
-            and self.config.profile_at_step is not None
+            self.config.profile_at_step is not None
             and step == self.config.profile_at_step
         )
 
