@@ -184,7 +184,7 @@ class Observer:
 
         self._model: Optional[nn.Module] = None
 
-        # ── Layer health (per-epoch, reset in _start_epoch) ──
+        # ── Layer health (per-step, reset in _start_interval) ──
         self._layer_activation_stats: Dict[str, List[Dict]] = defaultdict(list)
         self._layer_gradient_stats: Dict[str, List[Dict]] = defaultdict(list)
         self._health_hooks: List[Any] = []  # persistent hook handles, removed in close()
@@ -674,7 +674,7 @@ class Observer:
         self._layer_activation_stats.clear()
         self._layer_gradient_stats.clear()
 
-        # Lazy-init carbon tracker on first epoch
+        # Lazy-init carbon tracker on first step/interval
         if self.config.track_carbon_emissions and self._carbon_tracker is None:
             self._init_carbon_tracker()
 
@@ -817,7 +817,7 @@ class Observer:
 
         # ── Sustainability ──
         if self.config.track_sustainability:
-            rec["sustainability"] = self._compute_sustainability(rec, epoch)
+            rec["sustainability"] = self._compute_sustainability(rec, step_index)
 
         # ── Carbon emissions (CodeCarbon) ──
         if self.config.track_carbon_emissions and self._carbon_tracker:
@@ -829,24 +829,24 @@ class Observer:
                     getattr(data, "energy_consumed", 0.0) if data else 0.0
                 )
 
-                epoch_co2 = cumulative_co2 - self._carbon_prev_emissions
-                epoch_energy = cumulative_energy - self._carbon_prev_energy
+                step_co2 = cumulative_co2 - self._carbon_prev_emissions
+                step_energy = cumulative_energy - self._carbon_prev_energy
 
                 samples = rec.get("throughput", {}).get("samples_processed", 0)
 
                 rec["carbon_emissions"] = {
-                    "epoch_co2_kg": round(epoch_co2, 10),
-                    "epoch_energy_kwh": round(epoch_energy, 10),
+                    "step_co2_kg": round(step_co2, 10),
+                    "step_energy_kwh": round(step_energy, 10),
                     "cumulative_co2_kg": round(cumulative_co2, 10),
                     "cumulative_energy_kwh": round(cumulative_energy, 10),
                     "co2_per_sample_kg": round(
-                        epoch_co2 / max(samples, 1), 12
+                        step_co2 / max(samples, 1), 12
                     ),
                     "co2_per_second_kg": round(
-                        epoch_co2 / max(duration, 1e-9), 12
+                        step_co2 / max(duration, 1e-9), 12
                     ),
                     "power_draw_watts": round(
-                        epoch_energy * 3.6e6 / max(duration, 1e-9), 2
+                        step_energy * 3.6e6 / max(duration, 1e-9), 2
                     ),  # kWh -> J / s = W
                     "country_iso_code": self.config.carbon_country_iso,
                 }
@@ -1350,9 +1350,9 @@ class Observer:
 
         return result
 
-    def _compute_sustainability(self, rec: Dict[str, Any], epoch: int) -> Dict[str, Any]:
+    def _compute_sustainability(self, rec: Dict[str, Any], step_index: int) -> Dict[str, Any]:
         """
-        Derive sustainability metrics from existing epoch data:
+        Derive sustainability metrics from existing step data:
         layer efficiency, marginal loss, compute cost, cumulative compute.
         """
         sus: Dict[str, Any] = {}
@@ -1379,12 +1379,12 @@ class Observer:
 
         # ── Marginal loss improvement ──
         curr_loss = (rec.get("loss") or {}).get("train_mean")
-        if curr_loss is not None and self.epoch_data:
-            prev_loss = (self.epoch_data[-1].get("loss") or {}).get("train_mean")
+        if curr_loss is not None and self.step_data:
+            prev_loss = (self.step_data[-1].get("loss") or {}).get("train_mean")
             if prev_loss is not None and prev_loss > 0:
                 abs_imp = round(prev_loss - curr_loss, 6)
                 pct_imp = round(100 * abs_imp / prev_loss, 4)
-                first_loss = (self.epoch_data[0].get("loss") or {}).get(
+                first_loss = (self.step_data[0].get("loss") or {}).get(
                     "train_mean", prev_loss
                 )
                 cum_imp = round(first_loss - curr_loss, 6)
@@ -1410,8 +1410,8 @@ class Observer:
                 "marginal_over_cumulative": None,
             }
 
-        # ── Epoch compute cost ──
-        sus["epoch_compute_cost"] = {
+        # ── Step compute cost ──
+        sus["step_compute_cost"] = {
             "duration_seconds": rec.get("duration_seconds", 0),
             "profiler_cpu_time_ms": (rec.get("profiler") or {}).get("total_cpu_time_ms"),
             "profiler_cuda_time_ms": (rec.get("profiler") or {}).get("total_cuda_time_ms"),
@@ -1421,16 +1421,16 @@ class Observer:
 
         # ── Cumulative compute ──
         cum_duration = sum(
-            e.get("duration_seconds", 0) for e in self.epoch_data
+            s.get("duration_seconds", 0) for s in self.step_data
         ) + rec.get("duration_seconds", 0)
         cum_samples = sum(
-            (e.get("throughput") or {}).get("samples_processed", 0)
-            for e in self.epoch_data
+            (s.get("throughput") or {}).get("samples_processed", 0)
+            for s in self.step_data
         ) + (rec.get("throughput") or {}).get("samples_processed", 0)
         sus["cumulative_compute"] = {
             "total_duration_seconds": round(cum_duration, 4),
             "total_samples_processed": cum_samples,
-            "epochs_completed": len(self.epoch_data) + 1,
+            "steps_completed": len(self.step_data) + 1,
         }
 
         return sus
@@ -1545,21 +1545,21 @@ class Observer:
                     optimal_stop = i - 1
                     break
 
-            total_dur = sum(e.get("duration_seconds", 0) for e in self.epoch_data)
+            total_dur = sum(s.get("duration_seconds", 0) for s in self.step_data)
             wasted_dur = sum(
-                e.get("duration_seconds", 0)
-                for e in self.epoch_data[optimal_stop + 1:]
+                s.get("duration_seconds", 0)
+                for s in self.step_data[optimal_stop + 1:]
             )
             wasted_pct = round(100 * wasted_dur / max(total_dur, 1e-9), 2)
-            sustainability_summary["optimal_stop_epoch"] = optimal_stop
-            sustainability_summary["wasted_epochs"] = len(self.epoch_data) - 1 - optimal_stop
+            sustainability_summary["optimal_stop_step"] = optimal_stop
+            sustainability_summary["wasted_steps"] = len(self.step_data) - 1 - optimal_stop
             sustainability_summary["wasted_compute_pct"] = wasted_pct
             sustainability_summary["wasted_duration_seconds"] = round(wasted_dur, 2)
 
         # Parameter efficiency score
         last_sus = None
-        for e in reversed(self.epoch_data):
-            le = (e.get("sustainability") or {}).get("layer_efficiency")
+        for s in reversed(self.step_data):
+            le = (s.get("sustainability") or {}).get("layer_efficiency")
             if le:
                 last_sus = le
                 break
@@ -1571,10 +1571,10 @@ class Observer:
                 0, round(100 - avg_dev * 20, 1)
             )
 
-        # Dead / vanishing / frozen layers (from last epoch's layer_health)
+        # Dead / vanishing / frozen layers (from last step's layer_health)
         last_health = None
-        for e in reversed(self.epoch_data):
-            lh = e.get("layer_health")
+        for s in reversed(self.step_data):
+            lh = s.get("layer_health")
             if lh:
                 last_health = lh
                 break
@@ -1593,22 +1593,22 @@ class Observer:
             ]
 
         # Carbon totals
-        carbon_epochs = [
-            e["carbon_emissions"]
-            for e in self.epoch_data
-            if e.get("carbon_emissions")
+        carbon_steps = [
+            s["carbon_emissions"]
+            for s in self.step_data
+            if s.get("carbon_emissions")
         ]
-        if carbon_epochs:
-            total_co2 = sum(c["epoch_co2_kg"] for c in carbon_epochs)
-            total_energy = sum(c["epoch_energy_kwh"] for c in carbon_epochs)
+        if carbon_steps:
+            total_co2 = sum(c["step_co2_kg"] for c in carbon_steps)
+            total_energy = sum(c["step_energy_kwh"] for c in carbon_steps)
             total_samples = sum(
-                e.get("throughput", {}).get("samples_processed", 0)
-                for e in self.epoch_data
+                s.get("throughput", {}).get("samples_processed", 0)
+                for s in self.step_data
             )
             sustainability_summary["total_co2_kg"] = round(total_co2, 8)
             sustainability_summary["total_energy_kwh"] = round(total_energy, 8)
-            sustainability_summary["co2_per_epoch_avg_kg"] = round(
-                total_co2 / len(carbon_epochs), 10
+            sustainability_summary["co2_per_step_avg_kg"] = round(
+                total_co2 / len(carbon_steps), 10
             )
             sustainability_summary["co2_per_1k_samples_kg"] = (
                 round(total_co2 / max(total_samples / 1000, 1e-9), 10)
@@ -1616,16 +1616,16 @@ class Observer:
                 else None
             )
             sustainability_summary["avg_power_draw_watts"] = round(
-                sum(c["power_draw_watts"] for c in carbon_epochs)
-                / len(carbon_epochs),
+                sum(c["power_draw_watts"] for c in carbon_steps)
+                / len(carbon_steps),
                 2,
             )
-            # Wasted carbon (epochs past optimal stop)
-            if "optimal_stop_epoch" in sustainability_summary:
-                opt = sustainability_summary["optimal_stop_epoch"]
+            # Wasted carbon (steps past optimal stop)
+            if "optimal_stop_step" in sustainability_summary:
+                opt = sustainability_summary["optimal_stop_step"]
                 wasted_carbon = sum(
-                    e.get("carbon_emissions", {}).get("epoch_co2_kg", 0)
-                    for e in self.epoch_data[opt + 1 :]
+                    s.get("carbon_emissions", {}).get("step_co2_kg", 0)
+                    for s in self.step_data[opt + 1 :]
                 )
                 sustainability_summary["wasted_co2_kg"] = round(wasted_carbon, 10)
 
