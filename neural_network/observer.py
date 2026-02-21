@@ -886,21 +886,44 @@ class Observer:
 
                 samples = rec.get("throughput", {}).get("samples_processed", 0)
 
+                def _f(attr, decimals=10):
+                    """Safely read a float attribute from EmissionsData."""
+                    return round(float(getattr(data, attr, None) or 0.0), decimals) if data else 0.0
+
                 rec["carbon_emissions"] = {
-                    "step_co2_kg": round(step_co2, 10),
-                    "step_energy_kwh": round(step_energy, 10),
+                    # ── Per-step totals (aligned with engine.py key names) ──
+                    "epoch_co2_kg": round(step_co2, 10),
+                    "epoch_energy_kwh": round(step_energy, 10),
+                    # ── Cumulative totals ──
                     "cumulative_co2_kg": round(cumulative_co2, 10),
                     "cumulative_energy_kwh": round(cumulative_energy, 10),
-                    "co2_per_sample_kg": round(
-                        step_co2 / max(samples, 1), 12
-                    ),
-                    "co2_per_second_kg": round(
-                        step_co2 / max(duration, 1e-9), 12
-                    ),
-                    "power_draw_watts": round(
-                        step_energy * 3.6e6 / max(duration, 1e-9), 2
-                    ),  # kWh -> J / s = W
-                    "country_iso_code": self.config.carbon_country_iso,
+                    # ── Rates & derived ──
+                    "emissions_rate_kg_s": _f("emissions_rate", 12),
+                    "co2_per_sample_kg": round(step_co2 / max(samples, 1), 12),
+                    "co2_per_second_kg": round(step_co2 / max(duration, 1e-9), 12),
+                    # ── Power breakdown by component (Watts) ──
+                    "power_draw_watts": round(step_energy * 3.6e6 / max(duration, 1e-9), 2),  # kWh → W
+                    "cpu_power_w": _f("cpu_power", 4),
+                    "gpu_power_w": _f("gpu_power", 4),
+                    "ram_power_w": _f("ram_power", 4),
+                    # ── Energy breakdown by component (kWh) ──
+                    "cpu_energy_kwh": _f("cpu_energy", 10),
+                    "gpu_energy_kwh": _f("gpu_energy", 10),
+                    "ram_energy_kwh": _f("ram_energy", 10),
+                    # ── Environmental ──
+                    "water_consumed_l": _f("water_consumed", 6),
+                    "country_name": getattr(data, "country_name", None) if data else None,
+                    "country_iso_code": getattr(data, "country_iso_code", self.config.carbon_country_iso) if data else self.config.carbon_country_iso,
+                    "region": getattr(data, "region", None) if data else None,
+                    # ── Hardware utilization (%) ──
+                    "cpu_utilization_pct": _f("cpu_utilization_percent", 2),
+                    "gpu_utilization_pct": _f("gpu_utilization_percent", 2),
+                    "ram_utilization_pct": _f("ram_utilization_percent", 2),
+                    # ── Hardware info ──
+                    "cpu_model": getattr(data, "cpu_model", None) if data else None,
+                    "gpu_model": getattr(data, "gpu_model", None) if data else None,
+                    "cpu_count": getattr(data, "cpu_count", None) if data else None,
+                    "gpu_count": getattr(data, "gpu_count", None) if data else None,
                 }
 
                 self._carbon_prev_emissions = cumulative_co2

@@ -1119,10 +1119,10 @@ def check_redundant_layers(epochs: list[dict]) -> list[IssueData]:
 def check_high_carbon_intensity(epochs: list[dict]) -> list[IssueData]:
     """Report training carbon footprint and flag high-intensity epochs."""
     issues: list[IssueData] = []
-    carbon_data = [
-        (i, e.get("carbon_emissions"))
+    carbon_data: list[tuple[int, dict]] = [
+        (i, e["carbon_emissions"])
         for i, e in enumerate(epochs)
-        if e.get("carbon_emissions")
+        if e.get("carbon_emissions") is not None
     ]
     if not carbon_data:
         return issues
@@ -1136,27 +1136,63 @@ def check_high_carbon_intensity(epochs: list[dict]) -> list[IssueData]:
     avg_power = (
         sum(c["power_draw_watts"] for _, c in carbon_data) / len(carbon_data)
     )
+    # Aggregate per-component power & energy from EmissionsData fields
+    total_cpu_energy = sum(c.get("cpu_energy_kwh", 0.0) or 0.0 for _, c in carbon_data)
+    total_gpu_energy = sum(c.get("gpu_energy_kwh", 0.0) or 0.0 for _, c in carbon_data)
+    total_ram_energy = sum(c.get("ram_energy_kwh", 0.0) or 0.0 for _, c in carbon_data)
+    total_water = sum(c.get("water_consumed_l", 0.0) or 0.0 for _, c in carbon_data)
+    avg_cpu_power = sum(c.get("cpu_power_w", 0.0) or 0.0 for _, c in carbon_data) / len(carbon_data)
+    avg_gpu_power = sum(c.get("gpu_power_w", 0.0) or 0.0 for _, c in carbon_data) / len(carbon_data)
+    avg_ram_power = sum(c.get("ram_power_w", 0.0) or 0.0 for _, c in carbon_data) / len(carbon_data)
+    # Use country/region/hardware from the last epoch that has data
+    last_carbon = carbon_data[-1][1]
+    country_name = last_carbon.get("country_name")
+    region = last_carbon.get("region")
+    cpu_model = last_carbon.get("cpu_model")
+    gpu_model = last_carbon.get("gpu_model")
 
     # Info-level: report total carbon footprint
     if total_co2 > 0:
+        power_parts = [f"CPU {avg_cpu_power:.1f}W", f"RAM {avg_ram_power:.1f}W"]
+        if avg_gpu_power > 0:
+            power_parts.insert(1, f"GPU {avg_gpu_power:.1f}W")
+        location_str = ""
+        if country_name:
+            location_str = f" ({country_name}{', ' + region if region else ''})"
         issues.append(IssueData(
             severity=IssueSeverity.info,
             category=IssueCategory.sustainability,
             title=f"Training carbon footprint: {total_co2 * 1000:.2f}g CO2",
             description=(
                 f"Total emissions: {total_co2 * 1000:.2f}g CO2 over "
-                f"{len(carbon_data)} epoch(s). Energy consumed: "
-                f"{total_energy * 1000:.2f} Wh. Average power draw: {avg_power:.1f}W."
+                f"{len(carbon_data)} epoch(s){location_str}. "
+                f"Energy consumed: {total_energy * 1000:.2f} Wh "
+                f"(CPU {total_cpu_energy * 1000:.2f} / "
+                f"GPU {total_gpu_energy * 1000:.2f} / "
+                f"RAM {total_ram_energy * 1000:.2f} Wh). "
+                f"Avg power: {avg_power:.1f}W ({', '.join(power_parts)})."
+                + (f" Water: {total_water * 1000:.1f} ml." if total_water > 0 else "")
             ),
             metric_key="total_co2_kg",
             metric_value={
                 "total_co2_kg": round(total_co2, 10),
                 "total_energy_kwh": round(total_energy, 10),
+                "cpu_energy_kwh": round(total_cpu_energy, 10),
+                "gpu_energy_kwh": round(total_gpu_energy, 10),
+                "ram_energy_kwh": round(total_ram_energy, 10),
                 "avg_power_watts": round(avg_power, 2),
+                "avg_cpu_power_w": round(avg_cpu_power, 2),
+                "avg_gpu_power_w": round(avg_gpu_power, 2),
+                "avg_ram_power_w": round(avg_ram_power, 2),
+                "total_water_l": round(total_water, 6),
                 "total_samples": total_samples,
                 "co2_per_1k_samples_kg": round(
                     total_co2 / max(total_samples / 1000, 1e-9), 12
                 ) if total_samples else None,
+                "country_name": country_name,
+                "region": region,
+                "cpu_model": cpu_model,
+                "gpu_model": gpu_model,
             },
             suggestion=(
                 "Consider early stopping, model pruning, or training during "
@@ -1198,6 +1234,8 @@ def check_high_carbon_intensity(epochs: list[dict]) -> list[IssueData]:
                             "ratio_vs_avg": round(intensity / avg_intensity, 2),
                             "epoch_co2_kg": carbon_data[idx][1]["epoch_co2_kg"]
                             if idx < len(carbon_data) else None,
+                            "cpu_power_w": carbon_data[idx][1].get("cpu_power_w"),
+                            "gpu_power_w": carbon_data[idx][1].get("gpu_power_w"),
                         },
                         suggestion=(
                             "This epoch's carbon cost far exceeds its training "
@@ -1249,7 +1287,13 @@ def check_wasted_carbon(epochs: list[dict]) -> list[IssueData]:
         for e in epochs[optimal_stop + 1:]
     )
 
+    wasted_water = sum(
+        e.get("carbon_emissions", {}).get("water_consumed_l", 0)
+        for e in epochs[optimal_stop + 1:]
+    )
+
     if wasted_co2 > 0:
+        water_str = f" and {wasted_water * 1000:.1f} ml of water" if wasted_water > 0 else ""
         issues.append(IssueData(
             severity=IssueSeverity.warning,
             category=IssueCategory.sustainability,
@@ -1257,20 +1301,113 @@ def check_wasted_carbon(epochs: list[dict]) -> list[IssueData]:
             description=(
                 f"Training could have stopped after epoch {optimal_stop}. "
                 f"The remaining {wasted_epochs} epoch(s) wasted "
-                f"{wasted_co2 * 1000:.2f}g CO2 and {wasted_energy * 1000:.2f} Wh "
-                f"of energy with diminishing returns."
+                f"{wasted_co2 * 1000:.2f}g CO2, {wasted_energy * 1000:.2f} Wh"
+                f"{water_str} with diminishing returns."
             ),
             epoch_index=optimal_stop,
             metric_key="wasted_co2_kg",
             metric_value={
                 "wasted_co2_kg": round(wasted_co2, 10),
                 "wasted_energy_kwh": round(wasted_energy, 10),
+                "wasted_water_l": round(wasted_water, 6),
                 "wasted_epochs": wasted_epochs,
                 "optimal_stop_epoch": optimal_stop,
             },
             suggestion=(
                 f"Implement early stopping with patience=2-3 to save "
                 f"~{wasted_co2 * 1000:.2f}g CO2 per training run."
+            ),
+        ))
+
+    return issues
+
+
+def check_gpu_power_efficiency(epochs: list[dict]) -> list[IssueData]:
+    """
+    Flag epochs where GPU is drawing significant power but utilization is low
+    (wasted idle GPU power), and CPU-dominant training on a GPU-equipped machine.
+    """
+    issues: list[IssueData] = []
+    carbon_epochs: list[tuple[int, dict]] = [
+        (i, e["carbon_emissions"])
+        for i, e in enumerate(epochs)
+        if e.get("carbon_emissions") is not None
+    ]
+    if not carbon_epochs:
+        return issues
+
+    # Check for idle GPU draw: gpu_power > 10W but gpu_utilization < 20%
+    idle_gpu_epochs: list[int] = []
+    for idx, c in carbon_epochs:
+        gpu_power = c.get("gpu_power_w", 0.0) or 0.0
+        gpu_util = c.get("gpu_utilization_pct", 0.0) or 0.0
+        if gpu_power > 10.0 and 0 < gpu_util < 20.0:
+            idle_gpu_epochs.append(idx)
+
+    if idle_gpu_epochs:
+        sample = carbon_epochs[idle_gpu_epochs[0]][1]
+        issues.append(IssueData(
+            severity=IssueSeverity.warning,
+            category=IssueCategory.sustainability,
+            title=f"Low GPU utilization with active power draw ({len(idle_gpu_epochs)} epoch(s))",
+            description=(
+                f"GPU is drawing power ({sample.get('gpu_power_w', 0):.1f}W) but utilization "
+                f"is below 20% in {len(idle_gpu_epochs)} epoch(s). "
+                f"This wastes energy without compute benefit."
+            ),
+            epoch_index=idle_gpu_epochs[0],
+            metric_key="gpu_utilization_pct",
+            metric_value={
+                "affected_epochs": idle_gpu_epochs,
+                "gpu_power_w": sample.get("gpu_power_w"),
+                "gpu_utilization_pct": sample.get("gpu_utilization_pct"),
+                "gpu_model": sample.get("gpu_model"),
+            },
+            suggestion=(
+                "Increase batch size to saturate the GPU, use DataLoader with "
+                "pin_memory=True and num_workers>0, or profile data pipeline bottlenecks "
+                "that are leaving the GPU starved."
+            ),
+        ))
+
+    # Check for CPU-dominant training: cpu_energy far exceeds gpu_energy when gpu present
+    high_cpu_epochs: list[int] = []
+    for idx, c in carbon_epochs:
+        cpu_e = c.get("cpu_energy_kwh", 0.0) or 0.0
+        gpu_e = c.get("gpu_energy_kwh", 0.0) or 0.0
+        gpu_power = c.get("gpu_power_w", 0.0) or 0.0
+        # GPU present (drawing power) but CPU consumed >5x the energy of GPU
+        if gpu_power > 1.0 and gpu_e > 0 and cpu_e / gpu_e > 5.0:
+            high_cpu_epochs.append(idx)
+
+    if high_cpu_epochs:
+        sample = carbon_epochs[high_cpu_epochs[0]][1]
+        cpu_e = sample.get("cpu_energy_kwh", 0) or 0
+        gpu_e = sample.get("gpu_energy_kwh", 0) or 0
+        ratio = cpu_e / max(gpu_e, 1e-12)
+        issues.append(IssueData(
+            severity=IssueSeverity.info,
+            category=IssueCategory.sustainability,
+            title=f"CPU consuming {ratio:.1f}x more energy than GPU ({len(high_cpu_epochs)} epoch(s))",
+            description=(
+                f"CPU energy ({cpu_e * 1000:.2f} Wh) far exceeds GPU energy "
+                f"({gpu_e * 1000:.2f} Wh) in epoch {high_cpu_epochs[0]}. "
+                f"Data preprocessing or CPU-side ops may be the bottleneck."
+            ),
+            epoch_index=high_cpu_epochs[0],
+            metric_key="cpu_to_gpu_energy_ratio",
+            metric_value={
+                "affected_epochs": high_cpu_epochs,
+                "cpu_energy_kwh": cpu_e,
+                "gpu_energy_kwh": gpu_e,
+                "ratio": round(ratio, 2),
+                "cpu_model": sample.get("cpu_model"),
+                "gpu_model": sample.get("gpu_model"),
+            },
+            suggestion=(
+                "Move data preprocessing to GPU transforms, increase DataLoader "
+                "num_workers, or use mixed-precision (torch.autocast) to shift "
+                "compute from CPU to GPU."
             ),
         ))
 
@@ -1554,6 +1691,7 @@ def run_diagnostics(
     # -- GreenAI / Carbon footprint checks (CodeCarbon) --
     issues += check_high_carbon_intensity(epochs)
     issues += check_wasted_carbon(epochs)
+    issues += check_gpu_power_efficiency(epochs)
 
     # ── Architecture-specific checks ──────────────────────────────────────
     arch_type = "generic"
