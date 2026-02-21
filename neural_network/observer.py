@@ -1,31 +1,18 @@
 """
 Observer - PyTorch Training Pipeline Monitor
 
-A comprehensive training observer that integrates PyTorch Profiler with
-custom hooks to capture architecture-level and pipeline-level diagnostics
-epoch by epoch.
+Lightweight training observer that captures session metadata, hyperparameters,
+model architecture, and per-epoch metrics (loss, throughput, memory, system, profiler).
 
 Collects:
-  - PyTorch Profiler op-level breakdown (CPU/CUDA time, memory, op categories)
-  - Gradient health per layer (norms, vanishing/exploding detection, NaN/Inf)
-  - Activation statistics per layer (mean, std, dead neuron %, saturation)
-  - Weight distribution evolution over epochs
-  - Memory footprint (process RSS, CUDA allocated/reserved/peak)
-  - Throughput (samples/sec, tokens/sec, batches/sec)
-  - Loss curves with moving averages
-  - Attention entropy and sparsity (transformer-specific)
-  - Console and error log capture
-  - System resource usage (CPU %, RAM)
-  - Forward vs backward pass timing ratio
-  - Layer-by-layer parameter and compute cost mapping
-  - Full layer graph for visualization: neuron counts, weight matrix shapes,
-    bias presence, hidden dimensions, data-flow edges, dimension flow summary,
-    initial weight statistics (mean/std/norm), buffers, and parent-child connections
+  - Session (run id, device, config snapshot)
+  - Hyperparameters (user-supplied)
+  - Model architecture (layer map, module tree, optional layer graph)
+  - Per-epoch: loss, throughput, memory, system, profiler (when profile_step used), log_counts
 """
 
 import json
 import logging
-import math
 import os
 import sys
 import time
@@ -46,24 +33,13 @@ from torch.profiler import profile, record_function, ProfilerActivity
 
 @dataclass
 class ObserverConfig:
-    """Controls which telemetry channels the Observer records.
-
-    Toggle individual channels on/off depending on what you need to debug.
-    Disabling expensive channels (profiler, activations, attention_entropy)
-    reduces overhead for production-like runs.
-    """
+    """Controls which telemetry channels the Observer records."""
 
     # Core tracking
     track_profiler: bool = True
-    track_gradients: bool = True
-    track_activations: bool = True
     track_memory: bool = True
     track_throughput: bool = True
     track_loss: bool = True
-    track_weights: bool = True
-
-    # Transformer-specific
-    track_attention_entropy: bool = False  # hooks into attention layers
 
     # Logging
     track_console_logs: bool = True
@@ -71,7 +47,7 @@ class ObserverConfig:
     track_hyperparameters: bool = True
 
     # Architecture visualization
-    track_layer_graph: bool = True  # full layer graph: neurons, weight shapes, connections
+    track_layer_graph: bool = True
 
     # System
     track_system_resources: bool = True
@@ -81,10 +57,10 @@ class ObserverConfig:
     profiler_profile_memory: bool = True
     profiler_with_stack: bool = False
     profiler_top_n_ops: int = 20
-
-    # Gradient health thresholds
-    gradient_exploding_threshold: float = 10.0
-    gradient_vanishing_threshold: float = 1e-7
+    # Per-stack grouping: set group_by_stack_n > 0 to see which call stacks use the most compute.
+    # with_stack is auto-enabled when group_by_stack_n > 0. Stack depth is often 5 (PyTorch limit).
+    profiler_group_by_stack_n: int = 0
+    profiler_top_n_stacks: int = 20
 
     # Log level for the observer's own logger
     log_level: int = logging.INFO
@@ -124,7 +100,7 @@ class Observer:
 
     Quickstart
     ----------
-    >>> config = ObserverConfig(track_profiler=True, track_gradients=True)
+    >>> config = ObserverConfig(track_profiler=True)
     >>> obs = Observer(api_key="key-123", project_id="proj-abc", config=config)
     >>> obs.log_hyperparameters({"lr": 3e-4, "batch_size": 64, ...})
     >>> obs.register_model(model)
@@ -191,12 +167,7 @@ class Observer:
         self._epoch_tokens_processed: int = 0
         self._epoch_samples_processed: int = 0
         self._profiler_snapshot: Optional[Dict] = None
-        self._activation_stats: Dict[str, Dict] = {}
-        self._attention_entropy_stats: Dict[str, Dict] = {}
 
-        # ── Hooks ──
-        self._activation_hooks: list = []
-        self._attention_hooks: list = []
         self._model: Optional[nn.Module] = None
 
         # ── Observer logger ──
@@ -277,12 +248,6 @@ class Observer:
         # ── Full layer graph for visualization ──
         if self.config.track_layer_graph:
             self.model_architecture["layer_graph"] = self._build_layer_graph(model)
-
-        # ── Attach hooks ──
-        if self.config.track_activations:
-            self._attach_activation_hooks(model)
-        if self.config.track_attention_entropy:
-            self._attach_attention_hooks(model)
 
         self._log.info(
             f"Model registered | {total_params:,} params "
@@ -507,95 +472,6 @@ class Observer:
             "total_edges": len(edges),
         }
 
-    # ------------------------------------------------------------------
-    # Activation hooks
-    # ------------------------------------------------------------------
-
-    def _attach_activation_hooks(self, model: nn.Module):
-        self._detach_hooks(self._activation_hooks)
-        targets = (nn.Linear, nn.LayerNorm, nn.Embedding, nn.Dropout)
-        for name, module in model.named_modules():
-            if isinstance(module, targets):
-                hook = module.register_forward_hook(self._make_activation_hook(name))
-                self._activation_hooks.append(hook)
-
-    def _make_activation_hook(self, layer_name: str):
-        def hook(_module, _input, output):
-            if not isinstance(output, torch.Tensor):
-                return
-            with torch.no_grad():
-                flat = output.float()
-                self._activation_stats[layer_name] = {
-                    "mean": round(flat.mean().item(), 6),
-                    "std": round(flat.std().item(), 6),
-                    "min": round(flat.min().item(), 6),
-                    "max": round(flat.max().item(), 6),
-                    "abs_mean": round(flat.abs().mean().item(), 6),
-                    "dead_fraction": round((flat == 0).float().mean().item(), 6),
-                    "saturated_fraction": round(
-                        ((flat.abs() > 0.99 * flat.abs().max()).float().mean().item()), 6
-                    ),
-                    "shape": list(output.shape),
-                }
-        return hook
-
-    # ------------------------------------------------------------------
-    # Attention entropy hooks (transformer-specific)
-    # ------------------------------------------------------------------
-
-    def _attach_attention_hooks(self, model: nn.Module):
-        """Hook into attention heads to capture weight entropy & sparsity."""
-        self._detach_hooks(self._attention_hooks)
-        for name, module in model.named_modules():
-            # Heuristic: look for modules named *sa*, *attention*, or with a
-            # `tril` buffer (causal mask), indicating an attention head.
-            if hasattr(module, "tril") or "attention" in name.lower() or "sa" in name.lower():
-                if hasattr(module, "forward"):
-                    hook = module.register_forward_hook(
-                        self._make_attention_hook(name)
-                    )
-                    self._attention_hooks.append(hook)
-
-    def _make_attention_hook(self, layer_name: str):
-        """
-        Capture attention weight entropy & sparsity.
-
-        We monkey-patch the softmax output inside the hook by wrapping
-        the module's forward. Instead, we approximate using the output:
-        since a single Head returns wei @ v, we can't directly get wei.
-        So this hook captures the *output* distribution as a proxy.
-        For true attention weights, enable the profiler trace.
-        """
-        def hook(_module, _input, output):
-            if not isinstance(output, torch.Tensor) or output.dim() < 2:
-                return
-            with torch.no_grad():
-                # Treat output as attention-weighted representation
-                # Compute distributional stats as proxy for attention pattern
-                flat = output.float()
-                # Approximate entropy of the output distribution along seq dim
-                # (higher entropy = more uniform attention, lower = more peaked)
-                abs_vals = flat.abs()
-                probs = abs_vals / (abs_vals.sum(dim=-1, keepdim=True) + 1e-10)
-                entropy = -(probs * (probs + 1e-10).log()).sum(dim=-1).mean().item()
-                max_entropy = math.log(flat.shape[-1])
-
-                self._attention_entropy_stats[layer_name] = {
-                    "output_entropy": round(entropy, 6),
-                    "max_possible_entropy": round(max_entropy, 6),
-                    "entropy_ratio": round(entropy / max(max_entropy, 1e-10), 4),
-                    "output_sparsity": round(
-                        (flat.abs() < 1e-4).float().mean().item(), 6
-                    ),
-                }
-        return hook
-
-    @staticmethod
-    def _detach_hooks(hook_list: list):
-        for h in hook_list:
-            h.remove()
-        hook_list.clear()
-
     # ==================================================================
     # Epoch lifecycle
     # ==================================================================
@@ -608,8 +484,6 @@ class Observer:
         self._epoch_batch_times.clear()
         self._epoch_tokens_processed = 0
         self._epoch_samples_processed = 0
-        self._activation_stats.clear()
-        self._attention_entropy_stats.clear()
         self._profiler_snapshot = None
 
         if torch.cuda.is_available() and self.config.track_memory:
@@ -695,22 +569,6 @@ class Observer:
                 ),
             }
 
-        # ── Gradients ──
-        if self.config.track_gradients and self._model is not None:
-            rec["gradients"] = self._snapshot_gradients()
-
-        # ── Weights ──
-        if self.config.track_weights and self._model is not None:
-            rec["weights"] = self._snapshot_weights()
-
-        # ── Activations ──
-        if self.config.track_activations and self._activation_stats:
-            rec["activations"] = dict(self._activation_stats)
-
-        # ── Attention entropy ──
-        if self.config.track_attention_entropy and self._attention_entropy_stats:
-            rec["attention_entropy"] = dict(self._attention_entropy_stats)
-
         # ── Memory ──
         if self.config.track_memory:
             rec["memory"] = self._snapshot_memory()
@@ -745,31 +603,95 @@ class Observer:
         """
         Run one forward + backward pass under the PyTorch profiler.
 
-        Call this *instead of* a normal training step (typically on the
-        first batch of each epoch). It returns (logits, loss) just like
-        model(x, y) so it can be a drop-in replacement.
+        Per-layer timing uses PyTorch's record_function(): each parameter
+        layer's forward/backward is wrapped in record_function(layer_name)
+        so the profiler natively attributes time to layers (see per_layer
+        in the snapshot). with_modules=True exists but only works for
+        TorchScript; for eager mode, record_function + hooks is the
+        recommended approach.
 
-        The profiler results are stored and will be included in the
-        next end_epoch() call.
+        Call this *instead of* a normal training step (typically on the
+        first batch of each epoch). Returns (logits, loss) like model(x, y).
         """
+        param_layers = self._get_parameter_layers(model)
+        layer_names = [name for name, _ in param_layers]
+        self._profiler_layer_names = layer_names
+
+        # Wrap each layer's forward/backward in record_function so the
+        # profiler attributes time to layer names (PyTorch's per-layer story for eager mode).
+        fwd_ctx: Dict[int, Any] = {}
+        bwd_ctx: Dict[int, Any] = {}
+
+        def make_forward_hooks(layer_name: str, mod_id: int):
+            def pre_hook(module, input):
+                ctx = record_function(layer_name)
+                fwd_ctx[mod_id] = ctx
+                ctx.__enter__()
+
+            def post_hook(module, input, output):
+                fwd_ctx[mod_id].__exit__(None, None, None)
+                del fwd_ctx[mod_id]
+
+            return pre_hook, post_hook
+
+        def make_backward_hooks(layer_name: str, bwd_name: str, mod_id: int):
+            def bwd_pre_hook(module, grad_output):
+                ctx = record_function(bwd_name)
+                bwd_ctx[mod_id] = ctx
+                ctx.__enter__()
+
+            def bwd_hook(module, grad_input, grad_output):
+                bwd_ctx[mod_id].__exit__(None, None, None)
+                del bwd_ctx[mod_id]
+
+            return bwd_pre_hook, bwd_hook
+
+        handles: List[Any] = []
+        for name, module in param_layers:
+            mid = id(module)
+            bwd_name = f"{name}.backward"
+            pre, post = make_forward_hooks(name, mid)
+            handles.append(module.register_forward_pre_hook(pre))
+            handles.append(module.register_forward_hook(post))
+            bwd_pre, bwd_post = make_backward_hooks(name, bwd_name, mid)
+            handles.append(module.register_full_backward_pre_hook(bwd_pre))
+            handles.append(module.register_full_backward_hook(bwd_post))
+
         activities = [ProfilerActivity.CPU]
         if torch.cuda.is_available():
             activities.append(ProfilerActivity.CUDA)
+        use_stack = (
+            self.config.profiler_with_stack
+            or self.config.profiler_group_by_stack_n > 0
+        )
 
-        with profile(
-            activities=activities,
-            record_shapes=self.config.profiler_record_shapes,
-            profile_memory=self.config.profiler_profile_memory,
-            with_stack=self.config.profiler_with_stack,
-        ) as prof:
-            with record_function("model_forward"):
-                logits, loss = model(x, y)
-            with record_function("model_backward"):
-                if loss is not None:
-                    loss.backward()
+        try:
+            with profile(
+                activities=activities,
+                record_shapes=self.config.profiler_record_shapes,
+                profile_memory=self.config.profiler_profile_memory,
+                with_stack=use_stack,
+            ) as prof:
+                with record_function("model_forward"):
+                    logits, loss = model(x, y)
+                with record_function("model_backward"):
+                    if loss is not None:
+                        loss.backward()
+            self._profiler_snapshot = self._parse_profiler(prof)
+        finally:
+            for h in handles:
+                h.remove()
 
-        self._profiler_snapshot = self._parse_profiler(prof)
         return logits, loss
+
+    @staticmethod
+    def _get_parameter_layers(model: nn.Module) -> List[tuple]:
+        """Return (name, module) for every module that has its own parameters."""
+        return [
+            (name, module)
+            for name, module in model.named_modules()
+            if name and sum(p.numel() for p in module.parameters(recurse=False)) > 0
+        ]
 
     def _parse_profiler(self, prof) -> Dict[str, Any]:
         """Extract structured data from a PyTorch profiler run."""
@@ -849,7 +771,54 @@ class Observer:
                 "pct_cpu": round(100 * stats["cpu_us"] / max(total_cpu, 1), 2),
             }
 
-        return {
+        # ── Per-stack grouping (which call stacks use the most compute) ──
+        top_by_stack: List[Dict[str, Any]] = []
+        use_stack = (
+            self.config.profiler_with_stack
+            or self.config.profiler_group_by_stack_n > 0
+        )
+        if self.config.profiler_group_by_stack_n > 0 and use_stack:
+            try:
+                avgs_stack = prof.key_averages(
+                    group_by_stack_n=self.config.profiler_group_by_stack_n
+                )
+            except Exception:
+                avgs_stack = []
+            for evt in sorted(
+                avgs_stack,
+                key=lambda e: e.cpu_time_total,
+                reverse=True,
+            )[: self.config.profiler_top_n_stacks]:
+                key_str = (
+                    evt.key
+                    if isinstance(evt.key, str)
+                    else str(evt.key)
+                )
+                lines = key_str.strip().split("\n")
+                op_name = lines[0].strip() if lines else key_str
+                stack_frames = [ln.strip() for ln in lines[1:] if ln.strip()]
+                entry: Dict[str, Any] = {
+                    "op": op_name,
+                    "cpu_time_us": evt.cpu_time_total,
+                    "cpu_time_ms": round(evt.cpu_time_total / 1000, 3),
+                    "calls": evt.count,
+                    "avg_cpu_us": round(
+                        evt.cpu_time_total / max(evt.count, 1), 1
+                    ),
+                    "pct_cpu": round(
+                        100 * evt.cpu_time_total / max(total_cpu, 1), 2
+                    ),
+                }
+                if stack_frames:
+                    entry["stack_frames"] = stack_frames
+                if torch.cuda.is_available():
+                    entry["cuda_time_us"] = evt.cuda_time_total
+                    entry["cuda_time_ms"] = round(
+                        evt.cuda_time_total / 1000, 3
+                    )
+                top_by_stack.append(entry)
+
+        result: Dict[str, Any] = {
             "total_cpu_time_ms": round(total_cpu / 1000, 3),
             "total_cuda_time_ms": round(total_cuda / 1000, 3),
             "forward_time_ms": round(fwd_time / 1000, 3),
@@ -859,62 +828,53 @@ class Observer:
             "top_operations": top_ops,
             "operation_categories": categories,
         }
+        if top_by_stack:
+            result["top_by_stack"] = top_by_stack
+
+        # ── Per-layer from record_function() events (PyTorch native for eager mode) ──
+        layer_names = getattr(self, "_profiler_layer_names", None)
+        if layer_names:
+            key_to_evt = {evt.key: evt for evt in avgs}
+            total_fwd_us = total_bwd_us = 0.0
+            per_layer: List[Dict[str, Any]] = []
+            for name in layer_names:
+                evt_fwd = key_to_evt.get(name)
+                evt_bwd = key_to_evt.get(f"{name}.backward")
+                fwd_us = evt_fwd.cpu_time_total if evt_fwd else 0.0
+                bwd_us = evt_bwd.cpu_time_total if evt_bwd else 0.0
+                if torch.cuda.is_available():
+                    if evt_fwd:
+                        fwd_us = fwd_us + (getattr(evt_fwd, "cuda_time_total", 0) or 0)
+                    if evt_bwd:
+                        bwd_us = bwd_us + (getattr(evt_bwd, "cuda_time_total", 0) or 0)
+                total_fwd_us += fwd_us
+                total_bwd_us += bwd_us
+                row_us = fwd_us + bwd_us
+                per_layer.append({
+                    "layer": name,
+                    "forward_us": round(fwd_us, 1),
+                    "forward_ms": round(fwd_us / 1000, 4),
+                    "backward_us": round(bwd_us, 1),
+                    "backward_ms": round(bwd_us / 1000, 4),
+                    "total_us": round(row_us, 1),
+                    "total_ms": round(row_us / 1000, 4),
+                })
+            total_layer_us = total_fwd_us + total_bwd_us
+            for row in per_layer:
+                fu, bu = row["forward_us"], row["backward_us"]
+                tu = fu + bu
+                row["pct_forward"] = round(100 * fu / max(total_fwd_us, 1), 2)
+                row["pct_backward"] = round(100 * bu / max(total_bwd_us, 1), 2)
+                row["pct_total"] = round(100 * tu / max(total_layer_us, 1), 2)
+            per_layer.sort(key=lambda r: r["total_us"], reverse=True)
+            result["per_layer"] = per_layer
+            result["num_layers"] = len(per_layer)
+
+        return result
 
     # ==================================================================
     # Snapshot helpers
     # ==================================================================
-
-    def _snapshot_gradients(self) -> Dict[str, Any]:
-        per_layer: Dict[str, Dict] = {}
-        total_norm_sq = 0.0
-        issues: List[Dict] = []
-
-        for name, param in self._model.named_parameters():
-            if param.grad is None:
-                continue
-            g = param.grad.data.float()
-            norm = g.norm(2).item()
-            total_norm_sq += norm ** 2
-
-            per_layer[name] = {
-                "norm": round(norm, 6),
-                "mean": round(g.mean().item(), 8),
-                "std": round(g.std().item(), 8),
-                "abs_mean": round(g.abs().mean().item(), 8),
-                "min": round(g.min().item(), 8),
-                "max": round(g.max().item(), 8),
-            }
-
-            if norm > self.config.gradient_exploding_threshold:
-                issues.append({"layer": name, "issue": "exploding", "norm": norm})
-            elif norm < self.config.gradient_vanishing_threshold:
-                issues.append({"layer": name, "issue": "vanishing", "norm": norm})
-            if torch.isnan(g).any():
-                issues.append({"layer": name, "issue": "NaN"})
-            if torch.isinf(g).any():
-                issues.append({"layer": name, "issue": "Inf"})
-
-        return {
-            "total_norm": round(math.sqrt(total_norm_sq), 6),
-            "num_layers": len(per_layer),
-            "issues": issues,
-            "health": "healthy" if not issues else "warning",
-            "per_layer": per_layer,
-        }
-
-    def _snapshot_weights(self) -> Dict[str, Dict]:
-        stats: Dict[str, Dict] = {}
-        for name, param in self._model.named_parameters():
-            w = param.data.float()
-            stats[name] = {
-                "mean": round(w.mean().item(), 8),
-                "std": round(w.std().item(), 8),
-                "norm": round(w.norm(2).item(), 6),
-                "min": round(w.min().item(), 8),
-                "max": round(w.max().item(), 8),
-                "numel": param.numel(),
-            }
-        return stats
 
     def _snapshot_memory(self) -> Dict[str, Any]:
         stats: Dict[str, Any] = {}
@@ -1032,16 +992,6 @@ class Observer:
                 "improved": means[-1] < means[0],
             }
 
-        # Gradient health across epochs
-        grad_issue_counts = [
-            len(e.get("gradients", {}).get("issues", []))
-            for e in self.epoch_data
-        ]
-        summary["gradient_health"] = {
-            "epochs_with_issues": sum(1 for c in grad_issue_counts if c > 0),
-            "total_issues": sum(grad_issue_counts),
-        }
-
         # Throughput averages
         tps = [
             e["throughput"]["tokens_per_second"]
@@ -1055,17 +1005,16 @@ class Observer:
         for e in reversed(self.epoch_data):
             if "profiler" in e:
                 p = e["profiler"]
+                pl = p.get("per_layer") or []
+                top_layer = pl[0] if pl else None
                 summary["profiler_highlight"] = {
                     "fwd_bwd_ratio": p.get("fwd_bwd_ratio"),
-                    "top_op": p["top_operations"][0]["name"] if p["top_operations"] else None,
+                    "top_op": p["top_operations"][0]["name"] if p.get("top_operations") else None,
                     "top_op_pct": round(
-                        100
-                        * p["top_operations"][0]["cpu_time_us"]
-                        / max(p["total_cpu_time_ms"] * 1000, 1),
-                        2,
-                    )
-                    if p["top_operations"]
-                    else None,
+                        100 * p["top_operations"][0]["cpu_time_us"] / max(p.get("total_cpu_time_ms", 0) * 1000, 1), 2
+                    ) if p.get("top_operations") else None,
+                    "top_layer": top_layer["layer"] if top_layer else None,
+                    "top_layer_pct": top_layer["pct_total"] if top_layer else None,
                 }
                 break
 
@@ -1076,9 +1025,7 @@ class Observer:
     # ==================================================================
 
     def close(self):
-        """Detach all hooks and finalize session metadata."""
-        self._detach_hooks(self._activation_hooks)
-        self._detach_hooks(self._attention_hooks)
+        """Finalize session metadata and remove log handlers."""
         for h in self._capture_handlers:
             logging.getLogger().removeHandler(h)
         self._capture_handlers.clear()
