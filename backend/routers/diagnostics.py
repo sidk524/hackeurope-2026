@@ -48,6 +48,33 @@ _SEVERITY_WEIGHT = {
 }
 
 
+def _step_to_epoch(step: TrainStep) -> dict:
+    """Build an epoch dict from a TrainStep's individual columns."""
+    epoch: dict = {
+        "epoch": step.step_index,
+        "duration_seconds": step.duration_seconds,
+    }
+    if step.loss:
+        epoch["loss"] = step.loss
+    if step.throughput:
+        epoch["throughput"] = step.throughput
+    if step.profiler:
+        epoch["profiler"] = step.profiler
+    if step.memory:
+        epoch["memory"] = step.memory
+    if step.system:
+        epoch["system"] = step.system
+    if step.layer_health:
+        epoch["layer_health"] = step.layer_health
+    if step.sustainability:
+        epoch["sustainability"] = step.sustainability
+    if step.carbon_emissions:
+        epoch["carbon_emissions"] = step.carbon_emissions
+    if step.log_counts:
+        epoch["log_counts"] = step.log_counts
+    return epoch
+
+
 def _build_layer_highlights(
     issues: list[IssueOut], arch: dict | None
 ) -> list[LayerHighlight]:
@@ -254,13 +281,8 @@ def run_session_diagnostics(session_id: int, db: SessionDep):
         .order_by(TrainStep.step_index)
     ).all()
 
-    # Build epochs list from step payloads
-    epochs: list[dict] = []
-    for step in steps:
-        payload = step.payload or {}
-        payload["epoch"] = step.step_index
-        payload["duration_seconds"] = step.duration_seconds
-        epochs.append(payload)
+    # Build epochs list from step columns
+    epochs: list[dict] = [_step_to_epoch(s) for s in steps]
 
     # Fetch session logs
     logs = db.exec(
@@ -386,12 +408,7 @@ def get_diagnostic_run(run_id: int, db: SessionDep):
         .where(TrainStep.session_id == run.session_id)
         .order_by(TrainStep.step_index)
     ).all()
-    epochs: list[dict] = []
-    for step in steps:
-        payload = step.payload or {}
-        payload["epoch"] = step.step_index
-        payload["duration_seconds"] = step.duration_seconds
-        epochs.append(payload)
+    epochs: list[dict] = [_step_to_epoch(s) for s in steps]
 
     sustainability = _build_sustainability_insight(issues_out, epochs)
     return DiagnosticRunOut(
@@ -459,12 +476,7 @@ def get_session_health(session_id: int, db: SessionDep):
         .where(TrainStep.session_id == session_id)
         .order_by(TrainStep.step_index)
     ).all()
-    epochs = []
-    for step in steps:
-        payload = step.payload or {}
-        payload["epoch"] = step.step_index
-        payload["duration_seconds"] = step.duration_seconds
-        epochs.append(payload)
+    epochs = [_step_to_epoch(s) for s in steps]
 
     logs = db.exec(
         select(SessionLog).where(SessionLog.session_id == session_id)
@@ -549,8 +561,8 @@ def get_project_trend(project_id: int, db: SessionDep):
             .where(TrainStep.session_id == sess.id)
             .order_by(TrainStep.step_index.desc())
         ).first()
-        if last_step and last_step.payload:
-            loss_data = last_step.payload.get("loss") or {}
+        if last_step and last_step.loss:
+            loss_data = last_step.loss
             if final_train_loss is None:
                 final_train_loss = loss_data.get("train_mean")
             val_info = loss_data.get("val") or {}

@@ -83,6 +83,10 @@ class TrainStep(SQLModel, table=True):
     profiler: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
     memory: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
     system: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
+    layer_health: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON()))
+    sustainability: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON()))
+    carbon_emissions: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON()))
+    log_counts: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON()))
 
     session: TrainSession = Relationship(back_populates="steps")
 

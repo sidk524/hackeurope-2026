@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Literal
 from pydantic import BaseModel
@@ -5,7 +6,19 @@ from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from sqlmodel import select, Session
 from database import SessionDep, engine
-from models import Model, TrainSession, SessionStatus, TrainStep
+from models import (
+    DiagnosticIssue,
+    DiagnosticRun,
+    IssueSeverity,
+    Model,
+    SessionLog,
+    TrainSession,
+    SessionStatus,
+    TrainStep,
+)
+from diagnostics.engine import run_diagnostics
+
+_log = logging.getLogger("sessions.diagnostics")
 
 
 router = APIRouter(
@@ -39,6 +52,10 @@ class TrainStepCreate(BaseModel):
     profiler: dict
     memory: dict
     system: dict
+    layer_health: dict | None = None
+    sustainability: dict | None = None
+    carbon_emissions: dict | None = None
+    log_counts: dict | None = None
 
 class TrainSessionUpdate(BaseModel):
     ended_at: datetime | None = None
@@ -117,6 +134,119 @@ def _set_session_running_after_delay(session_id: int) -> None:
             db.commit()
 
 
+def _run_step_diagnostics(session_id: int) -> None:
+    """Background task: run diagnostics on all steps for a session."""
+    try:
+        with Session(engine) as db:
+            # Fetch all steps
+            steps = db.exec(
+                select(TrainStep)
+                .where(TrainStep.session_id == session_id)
+                .order_by(TrainStep.step_index)
+            ).all()
+
+            epochs: list[dict] = []
+            for step in steps:
+                epoch: dict = {
+                    "epoch": step.step_index,
+                    "duration_seconds": step.duration_seconds,
+                }
+                if step.loss:
+                    epoch["loss"] = step.loss
+                if step.throughput:
+                    epoch["throughput"] = step.throughput
+                if step.profiler:
+                    epoch["profiler"] = step.profiler
+                if step.memory:
+                    epoch["memory"] = step.memory
+                if step.system:
+                    epoch["system"] = step.system
+                if step.layer_health:
+                    epoch["layer_health"] = step.layer_health
+                if step.sustainability:
+                    epoch["sustainability"] = step.sustainability
+                if step.carbon_emissions:
+                    epoch["carbon_emissions"] = step.carbon_emissions
+                if step.log_counts:
+                    epoch["log_counts"] = step.log_counts
+                epochs.append(epoch)
+
+            # Fetch logs and architecture
+            logs = db.exec(
+                select(SessionLog).where(SessionLog.session_id == session_id)
+            ).all()
+            model = db.exec(
+                select(Model).where(Model.session_id == session_id)
+            ).first()
+            arch = model.architecture if model else None
+
+            # Run engine
+            issue_data_list, health_score, arch_type = run_diagnostics(
+                epochs, logs, arch
+            )
+
+            # Build summary
+            summary_json = {
+                "severity_breakdown": {
+                    "critical": sum(
+                        1 for i in issue_data_list
+                        if i.severity == IssueSeverity.critical
+                    ),
+                    "warning": sum(
+                        1 for i in issue_data_list
+                        if i.severity == IssueSeverity.warning
+                    ),
+                    "info": sum(
+                        1 for i in issue_data_list
+                        if i.severity == IssueSeverity.info
+                    ),
+                },
+                "category_breakdown": {},
+            }
+            for issue in issue_data_list:
+                cat = issue.category.value
+                summary_json["category_breakdown"][cat] = (
+                    summary_json["category_breakdown"].get(cat, 0) + 1
+                )
+
+            # Persist
+            run = DiagnosticRun(
+                session_id=session_id,
+                health_score=health_score,
+                issue_count=len(issue_data_list),
+                arch_type=arch_type,
+                summary_json=summary_json,
+            )
+            db.add(run)
+            db.commit()
+            db.refresh(run)
+
+            for issue_data in issue_data_list:
+                db.add(DiagnosticIssue(
+                    run_id=run.id,
+                    severity=issue_data.severity,
+                    category=issue_data.category,
+                    title=issue_data.title,
+                    description=issue_data.description,
+                    epoch_index=issue_data.epoch_index,
+                    layer_id=issue_data.layer_id,
+                    metric_key=issue_data.metric_key,
+                    metric_value=(
+                        issue_data.metric_value
+                        if isinstance(issue_data.metric_value, dict)
+                        else {"value": issue_data.metric_value}
+                    ),
+                    suggestion=issue_data.suggestion,
+                ))
+            db.commit()
+            _log.info(
+                f"Diagnostics for session {session_id}: "
+                f"health={health_score}, issues={len(issue_data_list)}"
+            )
+    except Exception as e:
+        _log.error(f"Diagnostics failed for session {session_id}: {e}")
+
+
 @router.post("/{session_id}/step", response_model=TrainStep)
 def register_step(
     session_id: int,
@@ -135,8 +265,8 @@ def register_step(
     session.add(step_db)
     session.commit()
     session.refresh(step_db)
+    background.add_task(_run_step_diagnostics, session_id)
     background.add_task(_set_session_running_after_delay, session_id)
-    # TODO: analyze the step and determine the next action
     return step_db
 
 @router.get("/{session_id}/step", response_model=list[TrainStep])
