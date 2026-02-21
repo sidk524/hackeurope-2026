@@ -239,12 +239,37 @@ def _run_step_diagnostics(session_id: int) -> None:
                     suggestion=issue_data.suggestion,
                 ))
             db.commit()
+
+            # Set session status based on results
+            train_session = db.get(TrainSession, session_id)
+            if train_session:
+                has_issues = any(
+                    i.severity in (IssueSeverity.critical, IssueSeverity.warning)
+                    for i in issue_data_list
+                )
+                train_session.status = (
+                    SessionStatus.pending if has_issues
+                    else SessionStatus.running
+                )
+                db.add(train_session)
+                db.commit()
+
             _log.info(
                 f"Diagnostics for session {session_id}: "
                 f"health={health_score}, issues={len(issue_data_list)}"
             )
     except Exception as e:
         _log.error(f"Diagnostics failed for session {session_id}: {e}")
+        # On failure, set back to pending
+        try:
+            with Session(engine) as db:
+                train_session = db.get(TrainSession, session_id)
+                if train_session:
+                    train_session.status = SessionStatus.pending
+                    db.add(train_session)
+                    db.commit()
+        except Exception:
+            pass
 
 
 @router.post("/{session_id}/step", response_model=TrainStep)
@@ -259,14 +284,13 @@ def register_step(
         raise HTTPException(status_code=404, detail="Session not found")
     if train_session.status != SessionStatus.running:
         raise HTTPException(status_code=400, detail="Session is not running")
-    train_session.status = SessionStatus.pending # Indicate that the session is pending, awaiting the next action to be determined
+    train_session.status = SessionStatus.analyzing  # Diagnostics will run in background
     session.add(train_session)
     step_db = TrainStep(session_id=session_id, **step_create_request.model_dump())
     session.add(step_db)
     session.commit()
     session.refresh(step_db)
     background.add_task(_run_step_diagnostics, session_id)
-    background.add_task(_set_session_running_after_delay, session_id)
     return step_db
 
 @router.get("/{session_id}/step", response_model=list[TrainStep])

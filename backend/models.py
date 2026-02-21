@@ -10,6 +10,7 @@ class SessionStatus(str, Enum):
     completed = "completed"
     failed = "failed"
     pending = "pending"
+    analyzing = "analyzing"
 
 
 class LogKind(str, Enum):
