@@ -2,13 +2,13 @@
 Observer - PyTorch Training Pipeline Monitor
 
 Lightweight training observer that captures session metadata, hyperparameters,
-model architecture, and per-epoch metrics (loss, throughput, memory, system, profiler).
+model architecture, and per-step metrics (loss, throughput, memory, system, profiler).
 
 Collects:
   - Session (run id, device, config snapshot)
   - Hyperparameters (user-supplied)
   - Model architecture (layer map, module tree, optional layer graph)
-  - Per-epoch: loss, throughput, memory, system, profiler (when profile_step used), log_counts
+  - Per-step: loss, throughput, memory, system, profiler (when profile_step used), log_counts
 """
 
 import json
@@ -21,6 +21,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 import torch
 import torch.nn as nn
@@ -53,7 +55,7 @@ class ObserverConfig:
     track_system_resources: bool = True
 
     # Profiler tuning
-    profile_at_step: Optional[int] = 0  # Which step within each epoch to profile (None = never)
+    profile_at_step: Optional[int] = 0  # Which step to profile (None = never)
     profile_every_n_steps: Optional[int] = None  # Profile every N steps (overrides profile_at_step when set)
     profiler_record_shapes: bool = True
     profiler_profile_memory: bool = True
@@ -98,26 +100,24 @@ class _LogCaptureHandler(logging.Handler):
 
 class Observer:
     """
-    Epoch-by-epoch training observer that collects rich diagnostics.
+    Step-based training observer that collects rich diagnostics.
 
     Quickstart
     ----------
     >>> config = ObserverConfig(track_profiler=True, profile_at_step=0)
-    >>> obs = Observer(api_key="key-123", project_id="proj-abc", config=config)
+    >>> obs = Observer(project_id="proj-abc", config=config)
     >>> obs.log_hyperparameters({"lr": 3e-4, "batch_size": 64, ...})
     >>> obs.register_model(model)
     >>>
-    >>> for epoch in range(num_epochs):
-    ...     for step, (x, y) in enumerate(loader):
-    ...         if obs.should_profile(step):
-    ...             logits, loss = obs.profile_step(model, x, y)
-    ...         else:
-    ...             logits, loss = model(x, y)
-    ...             loss.backward()
-    ...         optimizer.step(); optimizer.zero_grad()
-    ...         obs.step(epoch, step, loss, batch_size=x.size(0), seq_length=x.size(1))
-    ...     val_metrics = evaluate()
-    ...     report = obs.end_epoch(epoch, val_metrics=val_metrics)
+    >>> for step, (x, y) in enumerate(loader):
+    ...     if obs.should_profile(step):
+    ...         logits, loss = obs.profile_step(model, x, y)
+    ...     else:
+    ...         logits, loss = model(x, y)
+    ...         loss.backward()
+    ...     optimizer.step(); optimizer.zero_grad()
+    ...     obs.step(step, loss, batch_size=x.size(0), seq_length=x.size(1))
+    ... obs.flush(val_metrics=val_metrics)
     >>>
     >>> obs.export("observer_reports/run.json")
     >>> obs.close()
@@ -125,20 +125,23 @@ class Observer:
 
     def __init__(
         self,
-        api_key: str,
-        project_id: str,
+        project_id: int,
         config: Optional[ObserverConfig] = None,
         run_name: Optional[str] = None,
+        *,
+        backend_base_url: str = "http://localhost:8000",
     ):
-        self.api_key = api_key
         self.project_id = project_id
         self.config = config or ObserverConfig()
         self.run_name = run_name or f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.run_id = f"{project_id}_{self.run_name}"
 
+        # ── Backend sync (session id stored after create) ──
+        self._backend_base_url = backend_base_url.rstrip("/")
+        self._backend_session_id: Optional[int] = None
+
         # ── Session metadata ──
         self.session: Dict[str, Any] = {
-            "api_key_prefix": api_key[:8] + "..." if len(api_key) > 8 else "***",
             "project_id": project_id,
             "run_id": self.run_id,
             "run_name": self.run_name,
@@ -155,17 +158,17 @@ class Observer:
         # ── Persistent stores ──
         self.hyperparameters: Dict[str, Any] = {}
         self.model_architecture: Dict[str, Any] = {}
-        self.epoch_data: List[Dict[str, Any]] = []
+        self.step_data: List[Dict[str, Any]] = []
         self.console_logs: List[Dict] = []
         self.error_logs: List[Dict] = []
 
-        # ── Ephemeral (per-epoch) state ──
-        self._current_epoch: Optional[int] = None
-        self._epoch_start_time: float = 0.0
-        self._epoch_batch_losses: List[float] = []
-        self._epoch_batch_times: List[float] = []
-        self._epoch_tokens_processed: int = 0
-        self._epoch_samples_processed: int = 0
+        # ── Ephemeral (per-interval) state, reset on flush() ──
+        self._interval_started: bool = False
+        self._step_start_time: float = 0.0
+        self._step_batch_losses: List[float] = []
+        self._step_batch_times: List[float] = []
+        self._step_tokens_processed: int = 0
+        self._step_samples_processed: int = 0
         self._profiler_snapshot: Optional[Dict] = None
 
         self._model: Optional[nn.Module] = None
@@ -196,6 +199,8 @@ class Observer:
             f"device={self.session['device']}"
         )
 
+        self._create_backend_session()
+
     # ==================================================================
     # Hyperparameters
     # ==================================================================
@@ -204,6 +209,49 @@ class Observer:
         """Record training hyperparameters (call before training starts)."""
         self.hyperparameters.update(params)
         self._log.info(f"Hyperparameters logged: {list(params.keys())}")
+
+    def _create_backend_session(self) -> None:
+        """Create a train session in the backend and store the returned session id."""
+        url = f"{self._backend_base_url}/sessions/project/{self.project_id}"
+        payload = {
+            "run_id": self.session["run_id"],
+            "run_name": self.session["run_name"],
+            "started_at": self.session["started_at"],
+            "device": self.session["device"],
+            "cuda_available": self.session["cuda_available"],
+            "pytorch_version": self.session["pytorch_version"],
+            "config": self.session["config"],
+            "status": "running",
+        }
+        body = json.dumps(payload).encode("utf-8")
+        req = Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            self._backend_session_id = data.get("id")
+            if self._backend_session_id is not None:
+                self._log.info(f"Backend session created | session_id={self._backend_session_id}")
+            else:
+                self._log.warning("Backend did not return session id")
+        except (HTTPError, URLError, OSError, json.JSONDecodeError) as e:
+            self._log.warning(f"Failed to create backend session: {e}")
+            raise e
+
+    def _register_backend_model(self, architecture: Dict[str, Any], hyperparameters: Dict[str, Any]) -> None:
+        """Register the model (architecture + hyperparameters) with the backend session."""
+        if self._backend_session_id is None:
+            return
+        url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/model"
+        payload = {"architecture": architecture, "hyperparameters": hyperparameters}
+        body = json.dumps(payload).encode("utf-8")
+        req = Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            self._log.info(f"Model registered in backend | model_id={data.get('id', '?')}")
+        except (HTTPError, URLError, OSError, json.JSONDecodeError) as e:
+            self._log.warning(f"Failed to register model in backend: {e}")
+            raise e
 
     # ==================================================================
     # Model registration & architecture analysis
@@ -253,6 +301,9 @@ class Observer:
             f"Model registered | {total_params:,} params "
             f"({total_params / 1e6:.2f}M) | {len(layer_map)} param layers"
         )
+
+        if self._backend_session_id is not None:
+            self._register_backend_model(self.model_architecture, self.hyperparameters)
 
     @staticmethod
     def _module_tree(model: nn.Module, prefix: str = "") -> Dict:
@@ -473,23 +524,21 @@ class Observer:
         }
 
     # ==================================================================
-    # Epoch lifecycle
+    # Step lifecycle
     # ==================================================================
 
-    def _start_epoch(self, epoch: int):
-        """Internal: reset per-epoch state when a new epoch begins."""
-        self._current_epoch = epoch
-        self._epoch_start_time = time.time()
-        self._epoch_batch_losses.clear()
-        self._epoch_batch_times.clear()
-        self._epoch_tokens_processed = 0
-        self._epoch_samples_processed = 0
+    def _start_interval(self):
+        """Internal: reset per-interval state (on first step or after flush)."""
+        self._interval_started = True
+        self._step_start_time = time.time()
+        self._step_batch_losses.clear()
+        self._step_batch_times.clear()
+        self._step_tokens_processed = 0
+        self._step_samples_processed = 0
         self._profiler_snapshot = None
 
         if torch.cuda.is_available() and self.config.track_memory:
             torch.cuda.reset_peak_memory_stats()
-
-        self._log.info(f"--- Epoch {epoch} started ---")
 
     def should_profile(self, step: int) -> bool:
         """Return True if profiling should run on this step.
@@ -509,22 +558,18 @@ class Observer:
 
     def step(
         self,
-        epoch: int,
         step: int,
         loss,
         batch_size: Optional[int] = None,
         seq_length: Optional[int] = None,
     ):
         """
-        Record a single training step. Automatically initialises a new
-        epoch the first time a new epoch number is seen.
+        Record a single training step. On first call, initialises the interval buffer.
 
         Parameters
         ----------
-        epoch : int
-            Current epoch number.
         step : int
-            Batch / step index within the epoch.
+            Batch / step index.
         loss : torch.Tensor | float
             Loss value for this step.
         batch_size : int, optional
@@ -532,49 +577,50 @@ class Observer:
         seq_length : int, optional
             Sequence length per sample (for token throughput).
         """
-        # Auto-start a new epoch when the epoch number changes
-        if self._current_epoch is None or self._current_epoch != epoch:
-            self._start_epoch(epoch)
+        if not self._interval_started:
+            self._start_interval()
 
         loss_val = loss.item() if isinstance(loss, torch.Tensor) else float(loss)
-        self._epoch_batch_losses.append(loss_val)
-        self._epoch_batch_times.append(time.time())
+        self._step_batch_losses.append(loss_val)
+        self._step_batch_times.append(time.time())
         if batch_size:
-            self._epoch_samples_processed += batch_size
+            self._step_samples_processed += batch_size
         if batch_size and seq_length:
-            self._epoch_tokens_processed += batch_size * seq_length
+            self._step_tokens_processed += batch_size * seq_length
 
-    def end_epoch(
+    def flush(
         self,
-        epoch: int,
         val_metrics: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
-        Finalise the epoch: collect all channel data and return the epoch record.
+        Finalise the current interval: collect all channel data and return the record.
+        Call this when you want to commit the current batch of steps (e.g. after each
+        validation or at the end of training).
 
         Parameters
         ----------
-        epoch : int
-            Epoch number (should match what was passed to start_epoch).
         val_metrics : dict, optional
             Validation metrics, e.g. {"val_loss": 1.23, "val_acc": 0.87}.
 
         Returns
         -------
         dict
-            The complete epoch data record (also appended to self.epoch_data).
+            The complete step data record (also appended to self.step_data).
         """
-        duration = time.time() - self._epoch_start_time
+        if not self._interval_started:
+            self._start_interval()
+        duration = time.time() - self._step_start_time
+        step_index = len(self.step_data)
 
         rec: Dict[str, Any] = {
-            "epoch": epoch,
+            "step": step_index,
             "timestamp": datetime.now().isoformat(),
             "duration_seconds": round(duration, 4),
         }
 
         # ── Loss ──
-        if self.config.track_loss and self._epoch_batch_losses:
-            losses = self._epoch_batch_losses
+        if self.config.track_loss and self._step_batch_losses:
+            losses = self._step_batch_losses
             rec["loss"] = {
                 "train_mean": round(sum(losses) / len(losses), 6),
                 "train_min": round(min(losses), 6),
@@ -596,13 +642,13 @@ class Observer:
         # ── Throughput ──
         if self.config.track_throughput and duration > 0:
             rec["throughput"] = {
-                "samples_processed": self._epoch_samples_processed,
-                "tokens_processed": self._epoch_tokens_processed,
-                "samples_per_second": round(self._epoch_samples_processed / duration, 2),
-                "tokens_per_second": round(self._epoch_tokens_processed / duration, 2),
-                "batches_per_second": round(len(self._epoch_batch_losses) / duration, 2),
+                "samples_processed": self._step_samples_processed,
+                "tokens_processed": self._step_tokens_processed,
+                "samples_per_second": round(self._step_samples_processed / duration, 2),
+                "tokens_per_second": round(self._step_tokens_processed / duration, 2),
+                "batches_per_second": round(len(self._step_batch_losses) / duration, 2),
                 "seconds_per_batch": round(
-                    duration / max(len(self._epoch_batch_losses), 1), 4
+                    duration / max(len(self._step_batch_losses), 1), 4
                 ),
             }
 
@@ -624,11 +670,13 @@ class Observer:
             "error": len(self.error_logs),
         }
 
-        self.epoch_data.append(rec)
+        self.step_data.append(rec)
+        self._interval_started = False
+        self._start_interval()
 
         loss_str = rec.get("loss", {}).get("train_mean", "N/A")
         self._log.info(
-            f"--- Epoch {epoch} done | {duration:.2f}s | loss={loss_str} ---"
+            f"--- Step {step_index} done | {duration:.2f}s | loss={loss_str} ---"
         )
         return rec
 
@@ -647,8 +695,8 @@ class Observer:
         TorchScript; for eager mode, record_function + hooks is the
         recommended approach.
 
-        Call this *instead of* a normal training step (typically on the
-        first batch of each epoch). Returns (logits, loss) like model(x, y).
+        Call this *instead of* a normal training step (e.g. first batch).
+        Returns (logits, loss) like model(x, y).
         """
         param_layers = self._get_parameter_layers(model)
         layer_names = [name for name, _ in param_layers]
@@ -963,10 +1011,10 @@ class Observer:
     # Export
     # ==================================================================
 
-    def get_epoch_report(self, epoch: int) -> Optional[Dict]:
-        """Retrieve the data for a specific epoch."""
-        for rec in self.epoch_data:
-            if rec["epoch"] == epoch:
+    def get_step_report(self, step_index: int) -> Optional[Dict]:
+        """Retrieve the data for a specific step (interval) index."""
+        for rec in self.step_data:
+            if rec["step"] == step_index:
                 return rec
         return None
 
@@ -983,7 +1031,7 @@ class Observer:
             "session": self.session,
             "hyperparameters": self.hyperparameters,
             "model_architecture": self.model_architecture,
-            "epochs": self.epoch_data,
+            "steps": self.step_data,
             "console_logs": self.console_logs if self.config.track_console_logs else [],
             "error_logs": self.error_logs if self.config.track_error_logs else [],
             "summary": self._build_summary(),
@@ -1003,21 +1051,21 @@ class Observer:
         return report
 
     def _build_summary(self) -> Dict[str, Any]:
-        if not self.epoch_data:
+        if not self.step_data:
             return {"status": "no_data"}
 
         summary: Dict[str, Any] = {
-            "total_epochs": len(self.epoch_data),
+            "total_steps": len(self.step_data),
             "total_duration_s": round(
-                sum(e["duration_seconds"] for e in self.epoch_data), 2
+                sum(s["duration_seconds"] for s in self.step_data), 2
             ),
         }
 
         # Loss trend
         means = [
-            e["loss"]["train_mean"]
-            for e in self.epoch_data
-            if "loss" in e and "train_mean" in e.get("loss", {})
+            s["loss"]["train_mean"]
+            for s in self.step_data
+            if "loss" in s and "train_mean" in s.get("loss", {})
         ]
         if means:
             summary["loss_trend"] = {
@@ -1031,17 +1079,17 @@ class Observer:
 
         # Throughput averages
         tps = [
-            e["throughput"]["tokens_per_second"]
-            for e in self.epoch_data
-            if "throughput" in e
+            s["throughput"]["tokens_per_second"]
+            for s in self.step_data
+            if "throughput" in s
         ]
         if tps:
             summary["avg_tokens_per_sec"] = round(sum(tps) / len(tps), 2)
 
-        # Profiler highlights (from last profiled epoch)
-        for e in reversed(self.epoch_data):
-            if "profiler" in e:
-                p = e["profiler"]
+        # Profiler highlights (from last profiled step)
+        for s in reversed(self.step_data):
+            if "profiler" in s:
+                p = s["profiler"]
                 pl = p.get("per_layer") or []
                 top_layer = pl[0] if pl else None
                 summary["profiler_highlight"] = {
@@ -1062,7 +1110,11 @@ class Observer:
     # ==================================================================
 
     def close(self):
-        """Finalize session metadata and remove log handlers."""
+        """Finalize session metadata and remove log handlers. Flushes any pending steps."""
+        if self._interval_started and (
+            self._step_batch_losses or self._step_samples_processed or self._step_tokens_processed
+        ):
+            self.flush()
         for h in self._capture_handlers:
             logging.getLogger().removeHandler(h)
         self._capture_handlers.clear()
@@ -1078,5 +1130,5 @@ class Observer:
     def __repr__(self):
         return (
             f"Observer(project={self.project_id!r}, run={self.run_name!r}, "
-            f"epochs={len(self.epoch_data)})"
+            f"steps={len(self.step_data)})"
         )
