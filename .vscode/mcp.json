@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "ml-diagnostics": {
+      "command": "python",
+      "args": ["F:/hackeurope-2026/backend/mcp_server.py"],
+      "cwd": "F:/hackeurope-2026/backend"
+    }
+  }
+}
