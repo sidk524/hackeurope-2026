@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Model, TrainStep } from "@/lib/client";
 
 type TrainSession = {
@@ -172,6 +172,15 @@ function SessionList({
   selectedSessionId,
   onSelectSession,
 }: SessionListProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const badgeText = !mounted
+    ? "0 runs"
+    : sessionsLoading
+      ? "Loading…"
+      : `${sessions.length} runs`;
+
   return (
     <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -182,7 +191,7 @@ function SessionList({
           <h2 className="text-lg font-semibold">Runs per project</h2>
         </div>
         <span className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-400">
-          {sessionsLoading ? "Loading…" : `${sessions.length} runs`}
+          {badgeText}
         </span>
       </div>
       {selectedProject ? (
