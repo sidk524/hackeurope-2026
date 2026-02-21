@@ -126,6 +126,10 @@ export type ProjectWithStatus = {
     status?: SessionStatus | null;
 };
 
+export type SessionActionRequest = {
+    action: 'stop' | 'resume';
+};
+
 export type SessionLog = {
     id?: number | null;
     session_id: number;
@@ -146,7 +150,7 @@ export type SessionLogCreate = {
     kind?: 'console' | 'error';
 };
 
-export type SessionStatus = 'running' | 'completed' | 'failed' | 'pending' | 'analyzing';
+export type SessionStatus = 'running' | 'completed' | 'failed' | 'pending' | 'analyzing' | 'stopped';
 
 export type SessionTrendItem = {
     session_id: number;
@@ -158,6 +162,7 @@ export type SessionTrendItem = {
     final_val_loss?: number | null;
     val_acc?: number | null;
     issue_count?: number | null;
+    diagnostic_run_count?: number;
 };
 
 /**
@@ -542,6 +547,37 @@ export type GetTrainSessionStatusSessionsSessionIdStatusGetResponses = {
 
 export type GetTrainSessionStatusSessionsSessionIdStatusGetResponse = GetTrainSessionStatusSessionsSessionIdStatusGetResponses[keyof GetTrainSessionStatusSessionsSessionIdStatusGetResponses];
 
+export type SessionActionSessionsSessionIdActionPostData = {
+    body: SessionActionRequest;
+    path: {
+        session_id: number;
+    };
+    query?: never;
+    url: '/sessions/{session_id}/action';
+};
+
+export type SessionActionSessionsSessionIdActionPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SessionActionSessionsSessionIdActionPostError = SessionActionSessionsSessionIdActionPostErrors[keyof SessionActionSessionsSessionIdActionPostErrors];
+
+export type SessionActionSessionsSessionIdActionPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: TrainSession;
+};
+
+export type SessionActionSessionsSessionIdActionPostResponse = SessionActionSessionsSessionIdActionPostResponses[keyof SessionActionSessionsSessionIdActionPostResponses];
+
 export type GetModelSessionsSessionIdModelGetData = {
     body?: never;
     path: {
@@ -862,6 +898,32 @@ export type GetProjectTrendDiagnosticsProjectsProjectIdTrendGetResponses = {
 };
 
 export type GetProjectTrendDiagnosticsProjectsProjectIdTrendGetResponse = GetProjectTrendDiagnosticsProjectsProjectIdTrendGetResponses[keyof GetProjectTrendDiagnosticsProjectsProjectIdTrendGetResponses];
+
+export type StreamEventsEventsStreamGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        project_id?: number | null;
+        session_id?: number | null;
+    };
+    url: '/events/stream';
+};
+
+export type StreamEventsEventsStreamGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StreamEventsEventsStreamGetError = StreamEventsEventsStreamGetErrors[keyof StreamEventsEventsStreamGetErrors];
+
+export type StreamEventsEventsStreamGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});

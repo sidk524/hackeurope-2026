@@ -110,6 +110,7 @@ class SessionTrendItem(BaseModel):
     final_val_loss: float | None = None
     val_acc: float | None = None
     issue_count: int | None = None
+    diagnostic_run_count: int = 0  # number of diagnostic runs for this session
 
 
 class ProjectTrendOut(BaseModel):
