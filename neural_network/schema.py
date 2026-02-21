@@ -14,8 +14,8 @@ an exported observer JSON file.
     # Typed access to everything
     print(report.session.device)
     print(report.model_architecture.layer_graph.nodes[0].weight_shape)
-    for epoch in report.epochs:
-        print(epoch.loss.train_mean, epoch.profiler)
+    for step_rec in report.steps:
+        print(step_rec.loss.train_mean, step_rec.profiler)
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ class SessionConfig(BaseModel):
     track_system_resources: Optional[bool] = None
 
     # Profiler tuning
-    profile_at_step: Optional[int] = Field(None, description="Step index within each epoch to profile (None = never).")
+    profile_at_step: Optional[int] = Field(None, description="Step index to profile (None = never).")
     profiler_record_shapes: Optional[bool] = None
     profiler_profile_memory: Optional[bool] = None
     profiler_with_stack: Optional[bool] = None
@@ -252,14 +252,14 @@ class ModelArchitecture(BaseModel):
 # =====================================================================
 
 class EpochLoss(BaseModel):
-    """Loss statistics for a single epoch."""
+    """Loss statistics for a single step interval."""
     train_mean: float = Field(description="Mean batch loss across all batches.")
     train_min: float = Field(description="Minimum batch loss.")
     train_max: float = Field(description="Maximum batch loss.")
     train_first: float = Field(description="Loss of the first batch.")
     train_last: float = Field(description="Loss of the last batch.")
     train_std: float = Field(description="Std dev of batch losses.")
-    num_batches: int = Field(description="Number of batches in this epoch.")
+    num_batches: int = Field(description="Number of batches in this step interval.")
     val: Optional[Dict[str, float]] = Field(None, description="Validation metrics { metric_name: value }.")
 
 
@@ -268,9 +268,9 @@ class EpochLoss(BaseModel):
 # =====================================================================
 
 class EpochThroughput(BaseModel):
-    """Speed metrics for a single epoch."""
-    samples_processed: int = Field(description="Total samples processed this epoch.")
-    tokens_processed: int = Field(description="Total tokens processed this epoch.")
+    """Speed metrics for a single step interval."""
+    samples_processed: int = Field(description="Total samples processed this interval.")
+    tokens_processed: int = Field(description="Total tokens processed this interval.")
     samples_per_second: float = Field(description="Samples / wall-clock second.")
     tokens_per_second: float = Field(description="Tokens / wall-clock second.")
     batches_per_second: float = Field(description="Batches / wall-clock second.")
@@ -329,8 +329,8 @@ class EpochMemory(BaseModel):
     process_vms_mb: Optional[float] = Field(None, description="Process VMS in MB (requires psutil).")
     cuda_allocated_mb: Optional[float] = Field(None, description="CUDA memory currently allocated (MB).")
     cuda_reserved_mb: Optional[float] = Field(None, description="CUDA memory currently reserved (MB).")
-    cuda_peak_allocated_mb: Optional[float] = Field(None, description="Peak CUDA memory allocated this epoch (MB).")
-    cuda_peak_reserved_mb: Optional[float] = Field(None, description="Peak CUDA memory reserved this epoch (MB).")
+    cuda_peak_allocated_mb: Optional[float] = Field(None, description="Peak CUDA memory allocated this interval (MB).")
+    cuda_peak_reserved_mb: Optional[float] = Field(None, description="Peak CUDA memory reserved this interval (MB).")
 
 
 # =====================================================================
@@ -360,14 +360,14 @@ class LogCounts(BaseModel):
 
 
 # =====================================================================
-# Epoch (top-level)
+# Step (top-level)
 # =====================================================================
 
-class EpochRecord(BaseModel):
-    """Complete telemetry for a single epoch."""
-    epoch: int = Field(description="Epoch index.")
-    timestamp: str = Field(description="ISO-8601 time when end_epoch() was called.")
-    duration_seconds: float = Field(description="Wall-clock seconds for this epoch.")
+class StepRecord(BaseModel):
+    """Complete telemetry for a single step interval (from last flush to this flush)."""
+    step: int = Field(description="Step (interval) index.")
+    timestamp: str = Field(description="ISO-8601 time when flush() was called.")
+    duration_seconds: float = Field(description="Wall-clock seconds for this interval.")
     loss: Optional[EpochLoss] = Field(None, description="Loss statistics. Present when track_loss=True.")
     throughput: Optional[EpochThroughput] = Field(None, description="Speed metrics. Present when track_throughput=True.")
     profiler: Optional[EpochProfiler] = Field(None, description="Profiler results. Present when profile_step() was called.")
@@ -394,17 +394,17 @@ class LogEntry(BaseModel):
 # =====================================================================
 
 class LossTrend(BaseModel):
-    """Loss progression across epochs."""
-    first: float = Field(description="Train loss mean of first epoch.")
-    last: float = Field(description="Train loss mean of last epoch.")
-    best: float = Field(description="Lowest train loss mean across epochs.")
-    worst: float = Field(description="Highest train loss mean across epochs.")
+    """Loss progression across step intervals."""
+    first: float = Field(description="Train loss mean of first interval.")
+    last: float = Field(description="Train loss mean of last interval.")
+    best: float = Field(description="Lowest train loss mean across intervals.")
+    worst: float = Field(description="Highest train loss mean across intervals.")
     delta: float = Field(description="first - last (positive = improvement).")
     improved: bool = Field(description="Whether last < first.")
 
 
 class ProfilerHighlight(BaseModel):
-    """Key stats from the last profiled epoch."""
+    """Key stats from the last profiled step."""
     fwd_bwd_ratio: Optional[float] = Field(None, description="Forward / backward time ratio.")
     top_op: Optional[str] = Field(None, description="Name of the most expensive operation.")
     top_op_pct: Optional[float] = Field(None, description="% of total CPU time for the top op.")
@@ -416,12 +416,12 @@ class Summary(BaseModel):
     """Aggregated summary computed at export time."""
     model_config = {"extra": "allow"}
 
-    total_epochs: Optional[int] = Field(None, description="Number of epochs recorded.")
-    total_duration_s: Optional[float] = Field(None, description="Sum of all epoch durations (seconds).")
-    loss_trend: Optional[LossTrend] = Field(None, description="Loss progression across epochs.")
-    avg_tokens_per_sec: Optional[float] = Field(None, description="Average throughput across epochs.")
-    profiler_highlight: Optional[ProfilerHighlight] = Field(None, description="Key stats from last profiled epoch.")
-    status: Optional[str] = Field(None, description="'no_data' if no epochs were recorded.")
+    total_steps: Optional[int] = Field(None, description="Number of step intervals recorded.")
+    total_duration_s: Optional[float] = Field(None, description="Sum of all interval durations (seconds).")
+    loss_trend: Optional[LossTrend] = Field(None, description="Loss progression across intervals.")
+    avg_tokens_per_sec: Optional[float] = Field(None, description="Average throughput across intervals.")
+    profiler_highlight: Optional[ProfilerHighlight] = Field(None, description="Key stats from last profiled step.")
+    status: Optional[str] = Field(None, description="'no_data' if no steps were recorded.")
 
 
 # =====================================================================
@@ -441,7 +441,7 @@ class ObserverReport(BaseModel):
 
         report.session.device
         report.model_architecture.layer_graph.nodes
-        report.epochs[0].profiler.top_operations
+        report.steps[0].profiler.top_operations
     """
     model_config = {"extra": "allow"}
 
@@ -449,7 +449,7 @@ class ObserverReport(BaseModel):
     session: Session = Field(description="Run-level metadata.")
     hyperparameters: Dict[str, Any] = Field(default_factory=dict, description="Training hyperparameters.")
     model_architecture: ModelArchitecture = Field(description="Static model analysis.")
-    epochs: List[EpochRecord] = Field(default_factory=list, description="Per-epoch telemetry records.")
+    steps: List[StepRecord] = Field(default_factory=list, description="Per-step (interval) telemetry records.")
     console_logs: List[LogEntry] = Field(default_factory=list, description="Captured INFO+ log records.")
     error_logs: List[LogEntry] = Field(default_factory=list, description="Captured WARNING+ log records.")
     summary: Summary = Field(description="Aggregated summary.")

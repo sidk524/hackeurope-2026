@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
 from database import SessionDep
-from models import TrainSession, SessionStatus
+from models import Model, TrainSession, SessionStatus
 
 
 router = APIRouter(
@@ -14,21 +14,26 @@ router = APIRouter(
 )
 
 
+class ModelCreateRequest(BaseModel):
+    architecture: dict
+    hyperparameters: dict
+
+
 class TrainSessionCreate(BaseModel):
     run_id: str
     run_name: str
-    started_at: datetime
+    started_at: str  # ISO format datetime string
     device: str
     cuda_available: bool
     pytorch_version: str
     config: dict
-    status: Literal["running", "completed", "failed", "paused", "pending"] = "running"
+    status: SessionStatus = SessionStatus.running
 
 
 class TrainSessionUpdate(BaseModel):
     ended_at: datetime | None = None
     summary: dict | None = None
-    status: Literal["completed", "failed", "paused", "pending"] | None = None
+    status: SessionStatus | None = None
 
     
 @router.post("/project/{project_id}", response_model=TrainSession)
@@ -53,7 +58,6 @@ def get_train_session(session_id: int, session: SessionDep):
         raise HTTPException(status_code=404, detail="Session not found")
     return session
 
-
 @router.patch("/{session_id}", response_model=TrainSession)
 def update_train_session(session_id: int, train_session_update: TrainSessionUpdate, session: SessionDep):
     train_session_db = session.get(TrainSession, session_id)
@@ -67,9 +71,27 @@ def update_train_session(session_id: int, train_session_update: TrainSessionUpda
 
 @router.get("/{session_id}/status", response_model=SessionStatus)
 def get_train_session_status(session_id: int, session: SessionDep):
-    train_session = train_session.get(TrainSession, session_id)
+    train_session = session.get(TrainSession, session_id)
     if not train_session:
         raise HTTPException(status_code=404, detail="Session not found")
     return train_session.status
 
     
+@router.post("/{session_id}/model", response_model=Model)
+def register_model(session_id: int, model_create_request: ModelCreateRequest, session: SessionDep):
+    model_db = Model(session_id=session_id, **model_create_request.model_dump())
+    session.add(model_db)
+    session.commit()
+    session.refresh(model_db)
+    return model_db
+
+    
+@router.get("/{session_id}/model", response_model=Model)
+def get_model(session_id: int, session: SessionDep):
+    train_session = session.get(TrainSession, session_id)
+    if not train_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    model = session.exec(select(Model).where(Model.session_id == train_session.id)).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="No model registered for this session")
+    return model
