@@ -47,6 +47,78 @@ _SEVERITY_WEIGHT = {
 }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Decision thresholds — tunable constants for every heuristic check
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Loss checks
+LOSS_DIVERGENCE_MIN_EPOCHS = 3           # need at least N epochs to detect consecutive rise
+LOSS_EXPLOSION_RATIO = 2.0               # train_mean more than Nx the previous epoch → critical
+LOSS_PLATEAU_MIN_EPOCHS = 4              # need at least N epochs before plateau check is meaningful
+LOSS_PLATEAU_WINDOW = 3                  # look at the last N epochs for plateau detection
+LOSS_PLATEAU_MIN_IMPROVEMENT = 0.01     # < 1% relative improvement over window → warning
+OVERFITTING_MIN_EPOCHS = 3              # need at least N epochs before overfitting check
+OVERFITTING_CONSECUTIVE_COUNT = 2       # N consecutive epoch pairs with rising val + falling train → warning
+HIGH_LOSS_VARIANCE_RATIO = 0.5          # std/mean > N → noisy gradient signal
+GRADIENT_INSTABILITY_MAX_MEAN_RATIO = 20  # max_loss/mean > N → gradient spike proxy
+
+# Throughput / system checks
+THROUGHPUT_DROP_FRACTION = 0.8          # throughput below N × peak → degradation warning (i.e. >20% drop)
+MEMORY_GROWTH_MIN_EPOCHS = 2            # need at least N epochs for memory growth comparison
+MEMORY_GROWTH_THRESHOLD = 0.25          # RSS growth > N (25%) from epoch 0 to last → warning
+SLOW_EPOCH_MIN_EPOCHS = 3              # need at least N epochs to compute a reliable median
+SLOW_EPOCH_MULTIPLIER = 1.5             # epoch duration > N × median → abnormally slow
+HIGH_CPU_THRESHOLD = 90                 # CPU % above N → compute-bottlenecked on CPU
+
+# Profiler checks
+PROFILER_HOTSPOT_PCT = 40               # layer > N% of CPU profiler time in one epoch → hotspot
+PROFILER_CONSISTENT_HOT_PCT = 25        # layer > N% per epoch → counts toward "consistently hot"
+PROFILER_CONSISTENT_HOT_EPOCHS = 3      # layer must exceed PROFILER_CONSISTENT_HOT_PCT in N+ epochs
+BACKWARD_DOMINANCE_PCT = 45             # backward pass > N% of CPU time → dominance warning
+FWD_BWD_RATIO_MIN = 0.15                # fwd/bwd ratio < N → backward disproportionately heavy
+
+# GreenAI / sustainability checks (profiler-level)
+DIMINISHING_RETURNS_MIN_EPOCHS = 3      # need at least N epochs before diminishing-returns check
+DIMINISHING_RETURNS_MOC_THRESHOLD = 0.05  # marginal/cumulative < N (5%) → diminishing returns
+OVER_PARAM_MIN_PARAM_PCT = 1.0          # layer must hold at least N% of params to be considered
+OVER_PARAM_MIN_COMPUTE_PCT = 0.1        # layer must use at least N% of compute to avoid false positives
+OVER_PARAM_RATIO = 10                   # param% / compute% > Nx → over-parameterized layer
+COMPUTE_INEFF_NEAR_ZERO_PARAM_PCT = 0.1    # below N% params the layer is "near-zero param"
+COMPUTE_INEFF_NEAR_ZERO_MIN_COMPUTE = 15   # near-zero param layer consuming > N% compute → info
+COMPUTE_INEFF_MIN_PARAM_PCT = 0.01         # skip layers with < N% params (pure activation layers etc.)
+COMPUTE_INEFF_RATIO = 10                   # compute% / param% > Nx → compute-inefficient layer
+COMPUTE_INEFF_MIN_COMPUTE_PCT = 5          # also require at least N% compute to avoid trivial flags
+DEVICE_UNDERUTIL_GPU_RATIO = 0.1           # CUDA/CPU time ratio < N → GPU underutilized
+EARLY_STOP_MOC_THRESHOLD = 0.05            # marginal/cumulative < N (5%) → optimal stop point
+EARLY_STOP_MIN_WASTED_EPOCHS = 1           # flag only when at least N epoch(s) were wasted
+
+# GreenAI / layer health checks (tensor-level)
+DEAD_NEURON_SPARSITY_THRESHOLD = 0.5       # weight_sparsity > N → near-zero weights flag
+VANISHING_GRAD_MIN_EPOCHS = 2              # layer must show vanishing gradients in N+ epochs to flag
+GRAD_DEPTH_RATIO_THRESHOLD = 100           # last/first layer gradient norm ratio > Nx → depth vanishing
+FROZEN_OUTPUT_MIN_EPOCHS = 2               # layer must have frozen output in N+ epochs to flag
+ACTIVATION_COLLAPSE_MIN_EPOCHS = 2         # layer must have near-zero activation variance in N+ epochs
+REDUNDANT_LAYER_CORRELATION = 0.95         # |correlation| > N → activations nearly identical
+REDUNDANT_LAYER_MIN_EPOCHS = 2             # pair must exceed correlation threshold in N+ epochs to flag
+
+# GreenAI / carbon footprint checks
+CARBON_INTENSITY_RATIO = 10                # epoch intensity > N × session average → high intensity
+WASTED_CARBON_MOC_THRESHOLD = 0.05         # marginal/cumulative < N (5%) → optimal stop for carbon calc
+
+# GreenAI / GPU power efficiency checks
+GPU_IDLE_POWER_THRESHOLD_W = 10.0          # GPU drawing > NW is considered "actively powered"
+GPU_IDLE_UTIL_THRESHOLD_PCT = 20.0         # GPU utilization < N% while powered → idle waste
+CPU_GPU_ENERGY_RATIO_THRESHOLD = 5.0       # CPU energy > N × GPU energy → CPU-dominant training
+GPU_PRESENCE_POWER_THRESHOLD_W = 1.0       # GPU power > NW confirms GPU is present in the system
+
+# CNN architecture checks
+CNN_FC_DOMINATES_PCT = 92                  # FC layer holds > N% of total params → pooling likely missing
+CNN_CONV_BOTTLENECK_PCT = 60               # Conv2d holds > N% of total params → disproportionate
+CNN_MISSING_POOLING_STREAK = 3             # N+ consecutive conv layers without pooling → flag
+CNN_LARGE_KERNEL_SIZE = 7                  # kernel size >= N → large kernel warning
+CNN_GRAYSCALE_CHANNEL_EXPLOSION = 32       # first conv 1→N+ channels from grayscale → over-parameterized
+
+
 def compute_health_score(issues: list[IssueData]) -> int:
     score = 100
     for issue in issues:
@@ -87,7 +159,7 @@ def _layer_id_from_per_layer(entry: dict) -> str:
 def check_loss_divergence(epochs: list[dict]) -> list[IssueData]:
     """Detect 2+ consecutive epochs where train_mean is rising after epoch 0."""
     issues: list[IssueData] = []
-    if len(epochs) < 3:
+    if len(epochs) < LOSS_DIVERGENCE_MIN_EPOCHS:
         return issues
     for i in range(2, len(epochs)):
         prev_prev = epochs[i - 2]["loss"]["train_mean"]
@@ -120,7 +192,7 @@ def check_loss_explosion(epochs: list[dict]) -> list[IssueData]:
     for i in range(1, len(epochs)):
         prev = epochs[i - 1]["loss"]["train_mean"]
         curr = epochs[i]["loss"]["train_mean"]
-        if prev > 0 and curr / prev > 2.0:
+        if prev > 0 and curr / prev > LOSS_EXPLOSION_RATIO:
             issues.append(IssueData(
                 severity=IssueSeverity.critical,
                 category=IssueCategory.loss,
@@ -143,21 +215,21 @@ def check_loss_explosion(epochs: list[dict]) -> list[IssueData]:
 
 def check_loss_plateau(epochs: list[dict]) -> list[IssueData]:
     """Detect < 1% improvement over the last 3 epochs (only after epoch 3)."""
-    if len(epochs) < 4:
+    if len(epochs) < LOSS_PLATEAU_MIN_EPOCHS:
         return []
-    last_3 = epochs[-3:]
+    last_3 = epochs[-LOSS_PLATEAU_WINDOW:]
     losses = [e["loss"]["train_mean"] for e in last_3]
     first_loss = losses[0]
     if first_loss == 0:
         return []
     improvement = (first_loss - losses[-1]) / first_loss
-    if improvement < 0.01:
+    if improvement < LOSS_PLATEAU_MIN_IMPROVEMENT:
         return [IssueData(
             severity=IssueSeverity.warning,
             category=IssueCategory.loss,
             title="Loss plateau",
             description=(
-                f"Training loss improved only {improvement * 100:.2f}% over the last 3 epochs "
+                f"Training loss improved only {improvement * 100:.2f}% over the last {LOSS_PLATEAU_WINDOW} epochs "
                 f"({losses[0]:.4f} → {losses[-1]:.4f})"
             ),
             epoch_index=len(epochs) - 1,
@@ -176,7 +248,7 @@ def check_overfitting(epochs: list[dict]) -> list[IssueData]:
     Detect overfitting: val_loss increases while train_mean decreases
     for 2+ consecutive epoch pairs.
     """
-    if len(epochs) < 3:
+    if len(epochs) < OVERFITTING_MIN_EPOCHS:
         return []
     overfit_epochs: list[int] = []
     for i in range(1, len(epochs)):
@@ -189,7 +261,7 @@ def check_overfitting(epochs: list[dict]) -> list[IssueData]:
         if val_prev is not None and val_curr is not None:
             if val_curr > val_prev and train_curr < train_prev:
                 overfit_epochs.append(i)
-    if len(overfit_epochs) >= 2:
+    if len(overfit_epochs) >= OVERFITTING_CONSECUTIVE_COUNT:
         return [IssueData(
             severity=IssueSeverity.warning,
             category=IssueCategory.loss,
@@ -215,7 +287,7 @@ def check_high_loss_variance(epochs: list[dict]) -> list[IssueData]:
     for e in epochs:
         mean = e["loss"]["train_mean"]
         std = e["loss"].get("train_std", 0)
-        if mean > 0 and std / mean > 0.5:
+        if mean > 0 and std / mean > HIGH_LOSS_VARIANCE_RATIO:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.loss,
@@ -245,7 +317,7 @@ def check_gradient_instability(epochs: list[dict]) -> list[IssueData]:
     for e in epochs:
         mean = e["loss"]["train_mean"]
         max_loss = e["loss"].get("train_max", 0)
-        if mean > 0 and max_loss / mean > 20:
+        if mean > 0 and max_loss / mean > GRADIENT_INSTABILITY_MAX_MEAN_RATIO:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.loss,
@@ -286,7 +358,7 @@ def check_throughput_degradation(epochs: list[dict]) -> list[IssueData]:
         return []
     issues: list[IssueData] = []
     for idx, s in speeds:
-        if s > 0 and s < peak * 0.8:
+        if s > 0 and s < peak * THROUGHPUT_DROP_FRACTION:
             e = epochs[idx]
             drop_pct = (1 - s / peak) * 100
             issues.append(IssueData(
@@ -314,14 +386,14 @@ def check_throughput_degradation(epochs: list[dict]) -> list[IssueData]:
 
 def check_memory_growth(epochs: list[dict]) -> list[IssueData]:
     """Flag >25% RSS memory growth between epoch 0 and the last epoch."""
-    if len(epochs) < 2:
+    if len(epochs) < MEMORY_GROWTH_MIN_EPOCHS:
         return []
     first_rss = epochs[0].get("memory", {}).get("process_rss_mb", 0) or 0
     last_rss = epochs[-1].get("memory", {}).get("process_rss_mb", 0) or 0
     if first_rss <= 0:
         return []
     growth = (last_rss - first_rss) / first_rss
-    if growth > 0.25:
+    if growth > MEMORY_GROWTH_THRESHOLD:
         return [IssueData(
             severity=IssueSeverity.warning,
             category=IssueCategory.memory,
@@ -346,14 +418,14 @@ def check_memory_growth(epochs: list[dict]) -> list[IssueData]:
 
 def check_slow_epoch(epochs: list[dict]) -> list[IssueData]:
     """Flag any epoch that took >1.5× the median epoch duration."""
-    if len(epochs) < 3:
+    if len(epochs) < SLOW_EPOCH_MIN_EPOCHS:
         return []
     durations = [e.get("duration_seconds", 0) for e in epochs]
     median = statistics.median(durations)
     issues: list[IssueData] = []
     for e in epochs:
         d = e.get("duration_seconds", 0)
-        if median > 0 and d > median * 1.5:
+        if median > 0 and d > median * SLOW_EPOCH_MULTIPLIER:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.system,
@@ -382,7 +454,7 @@ def check_high_cpu(epochs: list[dict]) -> list[IssueData]:
     issues: list[IssueData] = []
     for e in epochs:
         cpu = (e.get("system") or {}).get("cpu_percent", 0) or 0
-        if cpu > 90:
+        if cpu > HIGH_CPU_THRESHOLD:
             issues.append(IssueData(
                 severity=IssueSeverity.info,
                 category=IssueCategory.system,
@@ -443,7 +515,7 @@ def check_profiler_hotspot(epochs: list[dict]) -> list[IssueData]:
             lid = _layer_id_from_per_layer(entry)
             pct = entry.get("pct_total", 0) or 0
             layer_epoch_pcts.setdefault(lid, []).append(pct)
-            if pct > 40:
+            if pct > PROFILER_HOTSPOT_PCT:
                 hotspot_ids.add(lid)
                 issues.append(IssueData(
                     severity=IssueSeverity.warning,
@@ -466,8 +538,8 @@ def check_profiler_hotspot(epochs: list[dict]) -> list[IssueData]:
 
     # Consistently hot across epochs
     for lid, pcts in layer_epoch_pcts.items():
-        high_count = sum(1 for p in pcts if p > 25)
-        if high_count >= 3 and lid not in hotspot_ids:
+        high_count = sum(1 for p in pcts if p > PROFILER_CONSISTENT_HOT_PCT)
+        if high_count >= PROFILER_CONSISTENT_HOT_EPOCHS and lid not in hotspot_ids:
             avg_pct = sum(pcts) / len(pcts)
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
@@ -497,7 +569,7 @@ def check_backward_dominance(epochs: list[dict]) -> list[IssueData]:
     for e in epochs:
         cats = (e.get("profiler") or {}).get("operation_categories", {})
         bwd_pct = (cats.get("backward_pass") or {}).get("pct_cpu", 0) or 0
-        if bwd_pct > 45:
+        if bwd_pct > BACKWARD_DOMINANCE_PCT:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.profiler,
@@ -522,7 +594,7 @@ def check_fwd_bwd_ratio(epochs: list[dict]) -> list[IssueData]:
     issues: list[IssueData] = []
     for e in epochs:
         ratio = (e.get("profiler") or {}).get("fwd_bwd_ratio")
-        if ratio is not None and ratio < 0.15:
+        if ratio is not None and ratio < FWD_BWD_RATIO_MIN:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.profiler,
@@ -549,14 +621,14 @@ def check_fwd_bwd_ratio(epochs: list[dict]) -> list[IssueData]:
 def check_diminishing_returns(epochs: list[dict]) -> list[IssueData]:
     """Flag epochs where marginal loss improvement < 5% of cumulative improvement."""
     issues: list[IssueData] = []
-    if len(epochs) < 3:
+    if len(epochs) < DIMINISHING_RETURNS_MIN_EPOCHS:
         return issues
 
     # Try precomputed sustainability data first
     for i, e in enumerate(epochs):
         sus = (e.get("sustainability") or {}).get("marginal_loss") or {}
         moc = sus.get("marginal_over_cumulative")
-        if moc is not None and moc < 0.05 and i >= 2:
+        if moc is not None and moc < DIMINISHING_RETURNS_MOC_THRESHOLD and i >= 2:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.sustainability,
@@ -591,7 +663,7 @@ def check_diminishing_returns(epochs: list[dict]) -> list[IssueData]:
             for i in range(2, len(losses)):
                 cumulative = first_loss - losses[i]
                 marginal = losses[i - 1] - losses[i]
-                if cumulative > 0 and marginal / cumulative < 0.05:
+                if cumulative > 0 and marginal / cumulative < DIMINISHING_RETURNS_MOC_THRESHOLD:
                     issues.append(IssueData(
                         severity=IssueSeverity.warning,
                         category=IssueCategory.sustainability,
@@ -636,13 +708,13 @@ def check_over_parameterized_layer(epochs: list[dict], arch: dict | None) -> lis
     for layer_name, arch_info in arch_layers.items():
         pct_params = arch_info.get("pct_of_total", 0)
         compute_vals = layer_compute.get(layer_name, [])
-        if not compute_vals or pct_params < 1:
+        if not compute_vals or pct_params < OVER_PARAM_MIN_PARAM_PCT:
             continue
         avg_compute = sum(compute_vals) / len(compute_vals)
-        if avg_compute < 0.1:
+        if avg_compute < OVER_PARAM_MIN_COMPUTE_PCT:
             continue
         ratio = pct_params / avg_compute
-        if ratio > 10:
+        if ratio > OVER_PARAM_RATIO:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.sustainability,
@@ -693,7 +765,7 @@ def check_compute_inefficient_layer(epochs: list[dict], arch: dict | None) -> li
         avg_compute = sum(compute_vals) / len(compute_vals)
 
         # Near-zero param layers with significant compute
-        if pct_params < 0.1 and avg_compute > 15:
+        if pct_params < COMPUTE_INEFF_NEAR_ZERO_PARAM_PCT and avg_compute > COMPUTE_INEFF_NEAR_ZERO_MIN_COMPUTE:
             issues.append(IssueData(
                 severity=IssueSeverity.info,
                 category=IssueCategory.sustainability,
@@ -715,10 +787,10 @@ def check_compute_inefficient_layer(epochs: list[dict], arch: dict | None) -> li
             ))
             continue
 
-        if pct_params < 0.01:
+        if pct_params < COMPUTE_INEFF_MIN_PARAM_PCT:
             continue
         ratio = avg_compute / pct_params
-        if ratio > 10 and avg_compute > 5:
+        if ratio > COMPUTE_INEFF_RATIO and avg_compute > COMPUTE_INEFF_MIN_COMPUTE_PCT:
             issues.append(IssueData(
                 severity=IssueSeverity.info,
                 category=IssueCategory.sustainability,
@@ -784,7 +856,7 @@ def check_device_underutilization(epochs: list[dict]) -> list[IssueData]:
 
     if profiled_count > 0 and total_cuda > 0 and total_cpu > 0:
         gpu_ratio = total_cuda / total_cpu
-        if gpu_ratio < 0.1:
+        if gpu_ratio < DEVICE_UNDERUTIL_GPU_RATIO:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.sustainability,
@@ -824,12 +896,12 @@ def check_early_stop_opportunity(epochs: list[dict]) -> list[IssueData]:
     for i in range(2, len(losses)):
         cumulative = first_loss - losses[i]
         marginal = losses[i - 1] - losses[i]
-        if cumulative > 0 and marginal / cumulative < 0.05:
+        if cumulative > 0 and marginal / cumulative < EARLY_STOP_MOC_THRESHOLD:
             optimal_stop = i - 1
             break
 
     wasted_epochs = len(losses) - 1 - optimal_stop
-    if wasted_epochs >= 1:
+    if wasted_epochs >= EARLY_STOP_MIN_WASTED_EPOCHS:
         total_duration = sum(e.get("duration_seconds", 0) for e in epochs)
         wasted_duration = sum(
             e.get("duration_seconds", 0) for e in epochs[optimal_stop + 1:]
@@ -909,7 +981,7 @@ def check_dead_neurons(epochs: list[dict]) -> list[IssueData]:
                     ),
                 ))
                 reported.add(name)
-            elif data.get("has_near_zero_weights") and data.get("weight_sparsity", 0) > 0.5:
+            elif data.get("has_near_zero_weights") and data.get("weight_sparsity", 0) > DEAD_NEURON_SPARSITY_THRESHOLD:
                 issues.append(IssueData(
                     severity=IssueSeverity.warning,
                     category=IssueCategory.sustainability,
@@ -948,7 +1020,7 @@ def check_vanishing_gradients(epochs: list[dict]) -> list[IssueData]:
                     vanish_counts[name] = vanish_counts.get(name, 0) + 1
 
     for name, count in vanish_counts.items():
-        if count >= 2:
+        if count >= VANISHING_GRAD_MIN_EPOCHS:
             avg_norm = sum(vanish_values.get(name, [0])) / max(len(vanish_values.get(name, [1])), 1)
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
@@ -981,7 +1053,7 @@ def check_vanishing_gradients(epochs: list[dict]) -> list[IssueData]:
             last_norm = (layers[layer_names[-1]].get("gradient_norm_mean") or 0)
             if last_norm > 0 and first_norm > 0:
                 ratio = last_norm / first_norm
-                if ratio > 100:
+                if ratio > GRAD_DEPTH_RATIO_THRESHOLD:
                     issues.append(IssueData(
                         severity=IssueSeverity.warning,
                         category=IssueCategory.sustainability,
@@ -1019,7 +1091,7 @@ def check_frozen_output(epochs: list[dict]) -> list[IssueData]:
                 frozen_counts[name] = frozen_counts.get(name, 0) + 1
 
     for name, count in frozen_counts.items():
-        if count >= 2:
+        if count >= FROZEN_OUTPUT_MIN_EPOCHS:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.sustainability,
@@ -1051,7 +1123,7 @@ def check_activation_collapse(epochs: list[dict]) -> list[IssueData]:
                 collapse_counts[name] = collapse_counts.get(name, 0) + 1
 
     for name, count in collapse_counts.items():
-        if count >= 2:
+        if count >= ACTIVATION_COLLAPSE_MIN_EPOCHS:
             issues.append(IssueData(
                 severity=IssueSeverity.warning,
                 category=IssueCategory.sustainability,
@@ -1082,11 +1154,11 @@ def check_redundant_layers(epochs: list[dict]) -> list[IssueData]:
         for entry in corrs:
             pair = (entry["layer_a"], entry["layer_b"])
             corr = entry.get("correlation", 0)
-            if abs(corr) > 0.95:
+            if abs(corr) > REDUNDANT_LAYER_CORRELATION:
                 pair_counts.setdefault(pair, []).append(corr)
 
     for (a, b), corr_vals in pair_counts.items():
-        if len(corr_vals) >= 2:
+        if len(corr_vals) >= REDUNDANT_LAYER_MIN_EPOCHS:
             avg_corr = sum(corr_vals) / len(corr_vals)
             issues.append(IssueData(
                 severity=IssueSeverity.info,
@@ -1218,7 +1290,7 @@ def check_high_carbon_intensity(epochs: list[dict]) -> list[IssueData]:
                 sum(v for _, v in epoch_intensities) / len(epoch_intensities)
             )
             for idx, intensity in epoch_intensities:
-                if intensity > avg_intensity * 10:
+                if intensity > avg_intensity * CARBON_INTENSITY_RATIO:
                     issues.append(IssueData(
                         severity=IssueSeverity.warning,
                         category=IssueCategory.sustainability,
@@ -1270,7 +1342,7 @@ def check_wasted_carbon(epochs: list[dict]) -> list[IssueData]:
     for i in range(2, len(losses)):
         cumulative = first_loss - losses[i]
         marginal = losses[i - 1] - losses[i]
-        if cumulative > 0 and marginal / cumulative < 0.05:
+        if cumulative > 0 and marginal / cumulative < WASTED_CARBON_MOC_THRESHOLD:
             optimal_stop = i - 1
             break
 
@@ -1341,7 +1413,7 @@ def check_gpu_power_efficiency(epochs: list[dict]) -> list[IssueData]:
     for idx, c in carbon_epochs:
         gpu_power = c.get("gpu_power_w", 0.0) or 0.0
         gpu_util = c.get("gpu_utilization_pct", 0.0) or 0.0
-        if gpu_power > 10.0 and 0 < gpu_util < 20.0:
+        if gpu_power > GPU_IDLE_POWER_THRESHOLD_W and 0 < gpu_util < GPU_IDLE_UTIL_THRESHOLD_PCT:
             idle_gpu_epochs.append(idx)
 
     if idle_gpu_epochs:
@@ -1377,7 +1449,7 @@ def check_gpu_power_efficiency(epochs: list[dict]) -> list[IssueData]:
         gpu_e = c.get("gpu_energy_kwh", 0.0) or 0.0
         gpu_power = c.get("gpu_power_w", 0.0) or 0.0
         # GPU present (drawing power) but CPU consumed >5x the energy of GPU
-        if gpu_power > 1.0 and gpu_e > 0 and cpu_e / gpu_e > 5.0:
+        if gpu_power > GPU_PRESENCE_POWER_THRESHOLD_W and gpu_e > 0 and cpu_e / gpu_e > CPU_GPU_ENERGY_RATIO_THRESHOLD:
             high_cpu_epochs.append(idx)
 
     if high_cpu_epochs:
@@ -1446,7 +1518,7 @@ class CnnChecker:
         for name, info in layers.items():
             if info.get("type") == "Linear":
                 pct = info.get("pct_of_total", 0)
-                if pct > 92:
+                if pct > CNN_FC_DOMINATES_PCT:
                     issues.append(IssueData(
                         severity=IssueSeverity.warning,
                         category=IssueCategory.architecture,
@@ -1479,7 +1551,7 @@ class CnnChecker:
         for name, info in layers.items():
             if info.get("type") == "Conv2d":
                 pct = info.get("pct_of_total", 0)
-                if pct > 60:
+                if pct > CNN_CONV_BOTTLENECK_PCT:
                     issues.append(IssueData(
                         severity=IssueSeverity.warning,
                         category=IssueCategory.architecture,
@@ -1518,7 +1590,7 @@ class CnnChecker:
             elif ntype in POOL_TYPES:
                 conv_streak = []
             else:
-                if len(conv_streak) >= 3:
+                if len(conv_streak) >= CNN_MISSING_POOLING_STREAK:
                     issues.append(IssueData(
                         severity=IssueSeverity.info,
                         category=IssueCategory.architecture,
@@ -1536,7 +1608,7 @@ class CnnChecker:
                     ))
                 conv_streak = []
         # check at end of path
-        if len(conv_streak) >= 3:
+        if len(conv_streak) >= CNN_MISSING_POOLING_STREAK:
             issues.append(IssueData(
                 severity=IssueSeverity.info,
                 category=IssueCategory.architecture,
@@ -1561,7 +1633,7 @@ class CnnChecker:
             kernel = node.get("kernel_size") or []
             if isinstance(kernel, list) and kernel:
                 k = max(kernel)
-                if k >= 7:
+                if k >= CNN_LARGE_KERNEL_SIZE:
                     issues.append(IssueData(
                         severity=IssueSeverity.info,
                         category=IssueCategory.architecture,
@@ -1594,7 +1666,7 @@ class CnnChecker:
         if first_conv:
             in_ch = first_conv.get("in_channels", 0) or 0
             out_ch = first_conv.get("out_channels", 0) or 0
-            if in_ch == 1 and out_ch > 32:
+            if in_ch == 1 and out_ch > CNN_GRAYSCALE_CHANNEL_EXPLOSION:
                 issues.append(IssueData(
                     severity=IssueSeverity.info,
                     category=IssueCategory.architecture,
