@@ -882,7 +882,7 @@ def check_dead_neurons(epochs: list[dict]) -> list[IssueData]:
     issues: list[IssueData] = []
     reported: set[str] = set()
 
-    for e in epochs:
+    for i, e in enumerate(epochs):
         layers = _get_layer_health(e)
         for name, data in layers.items():
             if name in reported:
@@ -896,7 +896,7 @@ def check_dead_neurons(epochs: list[dict]) -> list[IssueData]:
                         f"Layer '{name}' at epoch {e.get('epoch', '?')}: output never changes "
                         f"and >90% of weights are near-zero. This layer is effectively dead."
                     ),
-                    epoch_index=e.get("epoch"),
+                    epoch_index=e.get("epoch", i),
                     layer_id=name,
                     metric_key="is_dead",
                     metric_value={
@@ -918,7 +918,7 @@ def check_dead_neurons(epochs: list[dict]) -> list[IssueData]:
                         f"Layer '{name}' at epoch {e.get('epoch', '?')}: "
                         f"{data.get('weight_sparsity', 0) * 100:.1f}% of weights are near-zero."
                     ),
-                    epoch_index=e.get("epoch"),
+                    epoch_index=e.get("epoch", i),
                     layer_id=name,
                     metric_key="weight_sparsity",
                     metric_value={"weight_sparsity": data.get("weight_sparsity")},
