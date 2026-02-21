@@ -7,6 +7,7 @@ persisting diagnostic runs, and surfacing layer-level insights.
 
 from collections import defaultdict
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import func
 from sqlmodel import select
 
 from database import SessionDep
@@ -553,6 +554,9 @@ def get_project_trend(project_id: int, db: SessionDep):
             .where(DiagnosticRun.session_id == sess.id)
             .order_by(DiagnosticRun.created_at.desc())
         ).first()
+        diagnostic_run_count = db.exec(
+            select(func.count(DiagnosticRun.id)).where(DiagnosticRun.session_id == sess.id)
+        ).one() or 0
 
         # Get final epoch metrics from summary or last step
         final_train_loss: float | None = None
@@ -587,6 +591,7 @@ def get_project_trend(project_id: int, db: SessionDep):
             final_val_loss=final_val_loss,
             val_acc=val_acc,
             issue_count=latest_run.issue_count if latest_run else None,
+            diagnostic_run_count=diagnostic_run_count,
         ))
 
     # Determine if improving (compare first and last sessions with losses)

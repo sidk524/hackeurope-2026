@@ -21,6 +21,7 @@ import {
   TrainSessionPanel,
   TrainStepList,
 } from "./ProjectTrainingPanels";
+import ProjectTrendChart from "./ProjectTrendChart";
 import type { TrainSession as PanelTrainSession } from "./ProjectTrainingPanels";
 import { useEventSource } from "@/lib/use-event-source";
 
@@ -517,6 +518,7 @@ export default function ProjectsClient({
               selectedSessionId={selectedSessionId}
               onSelectSession={setSelectedSessionId}
             />
+            <ProjectTrendChart projectId={selectedProjectId} />
             <TrainSessionPanel session={activeSession} />
             <ModelPanel session={activeSession} model={modelForPanel} />
             <TrainStepList
