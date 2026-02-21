@@ -77,6 +77,9 @@ class ObserverConfig:
     carbon_tracker_mode: str = "online"          # "online" (real-time grid data) or "offline" (static country data)
     carbon_country_iso: str = "IRL"              # ISO 3166-1 alpha-3, used as fallback or for offline mode
 
+    # Pending timeout (exponential backoff)
+    pending_timeout: float = 39.0  # seconds to wait before auto-stopping when session is pending
+
     # Log level for the observer's own logger
     log_level: int = logging.INFO
 
@@ -878,25 +881,66 @@ class Observer:
             data = json.loads(resp.read().decode())
         return data
 
+    def _save_checkpoint(self) -> None:
+        """Save model state_dict to a checkpoint file."""
+        if self._model is None:
+            self._log.warning("No model registered, skipping checkpoint save.")
+            return
+        checkpoint_dir = os.path.join("observer_reports", "checkpoints")
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        path = os.path.join(
+            checkpoint_dir,
+            f"{self.run_name}_timeout_checkpoint.pt",
+        )
+        torch.save(self._model.state_dict(), path)
+        self._log.info(f"Checkpoint saved -> {path}")
+
+    def _stop_backend_session(self) -> None:
+        """Tell backend this session is stopped (timeout auto-stop)."""
+        url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/action"
+        body = json.dumps({"action": "stop"}).encode()
+        req = Request(url, method="POST", data=body,
+                      headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=10) as resp:
+                resp.read()
+        except Exception as e:
+            self._log.warning(f"Failed to stop backend session: {e}")
+
         
     def _await_backend_status(self, rec: Dict[str, Any]) -> None:
-        """Await the status of the session."""
+        """Await the status of the session with exponential backoff timeout."""
         self._log.info(f"Awaiting backend status for session {self._backend_session_id}...")
+        elapsed = 0.0
+        delay = 1.0
+
         while True:
             status = self._poll_backend_status(rec)
             self._log.info(f"Session status: {status}")
             if status == "running":
                 return
-            if status == "completed":
-                self._log.info("Training completed")
-                self.close()  # Stop the training
+            if status in ("completed", "stopped"):
+                self._log.info(f"Training {status}")
+                self.close()
                 return
             if status == "failed":
-                self._log.info("Training is failed")
-                self.close()  # Stop the training
+                self._log.info("Training failed")
+                self.close()
                 return
             if status in ("paused", "pending"):
-                time.sleep(1)
+                if elapsed >= self.config.pending_timeout:
+                    self._log.warning(
+                        f"Pending timeout ({self.config.pending_timeout}s) reached. "
+                        "Saving model and stopping."
+                    )
+                    self._save_checkpoint()
+                    self._stop_backend_session()
+                    self.close()
+                    return
+                sleep_time = min(delay, self.config.pending_timeout - elapsed)
+                time.sleep(sleep_time)
+                elapsed += sleep_time
+                delay = min(delay * 2, 32.0)
 
     # ==================================================================
     # PyTorch Profiler

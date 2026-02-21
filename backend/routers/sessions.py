@@ -62,6 +62,10 @@ class TrainSessionUpdate(BaseModel):
     summary: dict | None = None
     status: SessionStatus | None = None
 
+
+class SessionActionRequest(BaseModel):
+    action: Literal["stop", "resume"]
+
     
 @router.post("/project/{project_id}", response_model=TrainSession)
 def create_train_session(project_id: int, train_session: TrainSessionCreate, session: SessionDep):
@@ -103,7 +107,28 @@ def get_train_session_status(session_id: int, session: SessionDep):
         raise HTTPException(status_code=404, detail="Session not found")
     return train_session.status
 
-    
+
+@router.post("/{session_id}/action", response_model=TrainSession)
+def session_action(session_id: int, body: SessionActionRequest, session: SessionDep):
+    train_session = session.get(TrainSession, session_id)
+    if not train_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if train_session.status != SessionStatus.pending:
+        raise HTTPException(
+            status_code=409,
+            detail="Action is only available when session is pending",
+        )
+    if body.action == "stop":
+        train_session.status = SessionStatus.stopped
+        train_session.ended_at = datetime.utcnow().isoformat()
+    else:
+        train_session.status = SessionStatus.running
+    session.add(train_session)
+    session.commit()
+    session.refresh(train_session)
+    return train_session
+
+
 @router.post("/{session_id}/model", response_model=Model)
 def register_model(session_id: int, model_create_request: ModelCreateRequest, session: SessionDep):
     model_db = Model(session_id=session_id, **model_create_request.model_dump())
