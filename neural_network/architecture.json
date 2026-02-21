@@ -50,7 +50,77 @@
                     },
                     "config": {
                         "type": "object",
-                        "description": "Snapshot of the ObserverConfig used for this run."
+                        "description": "Snapshot of the ObserverConfig used for this run.",
+                        "fields": {
+                            "track_profiler": {
+                                "type": "boolean",
+                                "description": "Enable PyTorch profiler."
+                            },
+                            "track_memory": {
+                                "type": "boolean",
+                                "description": "Enable memory tracking."
+                            },
+                            "track_throughput": {
+                                "type": "boolean",
+                                "description": "Enable throughput tracking."
+                            },
+                            "track_loss": {
+                                "type": "boolean",
+                                "description": "Enable loss tracking."
+                            },
+                            "track_console_logs": {
+                                "type": "boolean",
+                                "description": "Capture INFO+ logs."
+                            },
+                            "track_error_logs": {
+                                "type": "boolean",
+                                "description": "Capture WARNING+ logs."
+                            },
+                            "track_hyperparameters": {
+                                "type": "boolean",
+                                "description": "Enable hyperparameter logging."
+                            },
+                            "track_layer_graph": {
+                                "type": "boolean",
+                                "description": "Build full layer graph at register_model()."
+                            },
+                            "track_system_resources": {
+                                "type": "boolean",
+                                "description": "Snapshot CPU/RAM/GPU stats."
+                            },
+                            "profile_at_step": {
+                                "type": "int|null",
+                                "description": "Step index within each epoch to profile (null = never)."
+                            },
+                            "profiler_record_shapes": {
+                                "type": "boolean",
+                                "description": "Record input shapes in profiler."
+                            },
+                            "profiler_profile_memory": {
+                                "type": "boolean",
+                                "description": "Profile memory in profiler."
+                            },
+                            "profiler_with_stack": {
+                                "type": "boolean",
+                                "description": "Capture stack traces in profiler."
+                            },
+                            "profiler_top_n_ops": {
+                                "type": "int",
+                                "description": "Number of top ops to report."
+                            },
+                            "profiler_group_by_stack_n": {
+                                "type": "int",
+                                "description": "Stack depth for per-stack grouping (0 = disabled)."
+                            },
+                            "profiler_top_n_stacks": {
+                                "type": "int",
+                                "description": "Number of top stacks to report."
+                            },
+                            "log_level": {
+                                "type": "int",
+                                "description": "Python log level for the observer's own logger."
+                            }
+                        }
                     }
                 }
             },
@@ -460,62 +530,6 @@
                                 }
                             }
                         },
-                        "gradients": {
-                            "type": "object",
-                            "description": "Gradient health snapshot taken at end of epoch. Conditional: track_gradients=true.",
-                            "fields": {
-                                "total_norm": {
-                                    "type": "float",
-                                    "description": "Global L2 norm across all parameter gradients."
-                                },
-                                "num_layers": {
-                                    "type": "int",
-                                    "description": "Number of layers with gradients."
-                                },
-                                "health": {
-                                    "type": "string",
-                                    "description": "'healthy' or 'warning'."
-                                },
-                                "issues": {
-                                    "type": "array",
-                                    "description": "List of detected gradient issues.",
-                                    "items": {
-                                        "layer": {
-                                            "type": "string",
-                                            "description": "Parameter name."
-                                        },
-                                        "issue": {
-                                            "type": "string",
-                                            "description": "One of: 'exploding', 'vanishing', 'NaN', 'Inf'."
-                                        },
-                                        "norm": {
-                                            "type": "float",
-                                            "description": "Gradient norm (for exploding/vanishing).",
-                                            "conditional": true
-                                        }
-                                    }
-                                },
-                                "per_layer": {
-                                    "type": "object",
-                                    "description": "{ <param_name>: { norm, mean, std, abs_mean, min, max } }"
-                                }
-                            }
-                        },
-                        "weights": {
-                            "type": "object",
-                            "description": "Weight distribution snapshot. Conditional: track_weights=true.",
-                            "fields": "{ <param_name>: { mean: float, std: float, norm: float, min: float, max: float, numel: int } }"
-                        },
-                        "activations": {
-                            "type": "object",
-                            "description": "Activation statistics per hooked layer. Conditional: track_activations=true.",
-                            "fields": "{ <layer_name>: { mean, std, min, max, abs_mean, dead_fraction, saturated_fraction, shape } }"
-                        },
-                        "attention_entropy": {
-                            "type": "object",
-                            "description": "Attention output entropy per head/layer. Conditional: track_attention_entropy=true.",
-                            "fields": "{ <layer_name>: { output_entropy, max_possible_entropy, entropy_ratio, output_sparsity } }"
-                        },
                         "profiler": {
                             "type": "object",
                             "description": "PyTorch Profiler results from profile_step(). Conditional: track_profiler=true and profile_step() was called.",
@@ -692,19 +706,6 @@
                             }
                         }
                     },
-                    "gradient_health": {
-                        "type": "object",
-                        "fields": {
-                            "epochs_with_issues": {
-                                "type": "int",
-                                "description": "Epochs that had at least one gradient issue."
-                            },
-                            "total_issues": {
-                                "type": "int",
-                                "description": "Cumulative gradient issues across all epochs."
-                            }
-                        }
-                    },
                     "avg_tokens_per_sec": {
                         "type": "float",
                         "description": "Average throughput across epochs.",
@@ -726,6 +727,14 @@
                             "top_op_pct": {
                                 "type": "float|null",
                                 "description": "% of total CPU time for the top op."
+                            },
+                            "top_layer": {
+                                "type": "string|null",
+                                "description": "Name of the most expensive layer."
+                            },
+                            "top_layer_pct": {
+                                "type": "float|null",
+                                "description": "% of total layer time for the top layer."
                             }
                         }
                     }

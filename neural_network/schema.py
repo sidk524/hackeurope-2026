@@ -15,7 +15,7 @@ an exported observer JSON file.
     print(report.session.device)
     print(report.model_architecture.layer_graph.nodes[0].weight_shape)
     for epoch in report.epochs:
-        print(epoch.loss.train_mean, epoch.gradients.health)
+        print(epoch.loss.train_mean, epoch.profiler)
 """
 
 from __future__ import annotations
@@ -47,17 +47,6 @@ class EdgeRelation(str, Enum):
     DATA_FLOW = "data_flow"
 
 
-class GradientHealth(str, Enum):
-    HEALTHY = "healthy"
-    WARNING = "warning"
-
-
-class GradientIssueType(str, Enum):
-    EXPLODING = "exploding"
-    VANISHING = "vanishing"
-    NAN = "NaN"
-    INF = "Inf"
-
 
 # =====================================================================
 # Session
@@ -67,20 +56,33 @@ class SessionConfig(BaseModel):
     """Snapshot of ObserverConfig used for the run."""
     model_config = {"extra": "allow"}
 
+    # Core tracking
     track_profiler: Optional[bool] = None
-    track_gradients: Optional[bool] = None
-    track_activations: Optional[bool] = None
     track_memory: Optional[bool] = None
     track_throughput: Optional[bool] = None
     track_loss: Optional[bool] = None
-    track_weights: Optional[bool] = None
-    track_layer_graph: Optional[bool] = None
-    track_attention_entropy: Optional[bool] = None
+
+    # Logging
     track_console_logs: Optional[bool] = None
     track_error_logs: Optional[bool] = None
     track_hyperparameters: Optional[bool] = None
+
+    # Architecture visualization
+    track_layer_graph: Optional[bool] = None
+
+    # System
     track_system_resources: Optional[bool] = None
-    include_schema: Optional[bool] = None
+
+    # Profiler tuning
+    profile_at_step: Optional[int] = Field(None, description="Step index within each epoch to profile (None = never).")
+    profiler_record_shapes: Optional[bool] = None
+    profiler_profile_memory: Optional[bool] = None
+    profiler_with_stack: Optional[bool] = None
+    profiler_top_n_ops: Optional[int] = None
+    profiler_group_by_stack_n: Optional[int] = None
+    profiler_top_n_stacks: Optional[int] = None
+
+    log_level: Optional[int] = None
 
 
 class Session(BaseModel):
@@ -276,78 +278,6 @@ class EpochThroughput(BaseModel):
 
 
 # =====================================================================
-# Epoch — Gradients
-# =====================================================================
-
-class GradientLayerStats(BaseModel):
-    """Per-parameter gradient statistics."""
-    norm: float = Field(description="L2 norm of the gradient.")
-    mean: float = Field(description="Mean gradient value.")
-    std: float = Field(description="Std dev of gradient values.")
-    abs_mean: float = Field(description="Mean of absolute gradient values.")
-    min: float = Field(description="Minimum gradient value.")
-    max: float = Field(description="Maximum gradient value.")
-
-
-class GradientIssue(BaseModel):
-    """A detected gradient health issue."""
-    layer: str = Field(description="Parameter name.")
-    issue: GradientIssueType = Field(description="Issue type.")
-    norm: Optional[float] = Field(None, description="Gradient norm (for exploding/vanishing).")
-
-
-class EpochGradients(BaseModel):
-    """Gradient health snapshot for a single epoch."""
-    total_norm: float = Field(description="Global L2 norm across all parameter gradients.")
-    num_layers: int = Field(description="Number of layers with gradients.")
-    health: GradientHealth = Field(description="'healthy' or 'warning'.")
-    issues: List[GradientIssue] = Field(default_factory=list, description="Detected gradient issues.")
-    per_layer: Dict[str, GradientLayerStats] = Field(description="Per-parameter gradient stats.")
-
-
-# =====================================================================
-# Epoch — Weights
-# =====================================================================
-
-class WeightLayerStats(BaseModel):
-    """Per-parameter weight distribution snapshot."""
-    mean: float = Field(description="Mean weight value.")
-    std: float = Field(description="Std dev of weight values.")
-    norm: float = Field(description="L2 norm of weight values.")
-    min: float = Field(description="Minimum weight value.")
-    max: float = Field(description="Maximum weight value.")
-    numel: int = Field(description="Number of elements.")
-
-
-# =====================================================================
-# Epoch — Activations
-# =====================================================================
-
-class ActivationStats(BaseModel):
-    """Activation statistics for a single hooked layer."""
-    mean: float = Field(description="Mean activation value.")
-    std: float = Field(description="Std dev of activation values.")
-    min: float = Field(description="Minimum activation value.")
-    max: float = Field(description="Maximum activation value.")
-    abs_mean: float = Field(description="Mean of absolute activation values.")
-    dead_fraction: float = Field(description="Fraction of zero activations (dead neurons).")
-    saturated_fraction: float = Field(description="Fraction of saturated activations.")
-    shape: List[int] = Field(description="Output tensor shape.")
-
-
-# =====================================================================
-# Epoch — Attention Entropy
-# =====================================================================
-
-class AttentionEntropyStats(BaseModel):
-    """Attention output entropy for a single head/layer."""
-    output_entropy: float = Field(description="Entropy of the attention output distribution.")
-    max_possible_entropy: float = Field(description="Maximum possible entropy (log of dim).")
-    entropy_ratio: float = Field(description="output_entropy / max_possible_entropy.")
-    output_sparsity: float = Field(description="Fraction of near-zero values in output.")
-
-
-# =====================================================================
 # Epoch — Profiler
 # =====================================================================
 
@@ -440,10 +370,6 @@ class EpochRecord(BaseModel):
     duration_seconds: float = Field(description="Wall-clock seconds for this epoch.")
     loss: Optional[EpochLoss] = Field(None, description="Loss statistics. Present when track_loss=True.")
     throughput: Optional[EpochThroughput] = Field(None, description="Speed metrics. Present when track_throughput=True.")
-    gradients: Optional[EpochGradients] = Field(None, description="Gradient health. Present when track_gradients=True.")
-    weights: Optional[Dict[str, WeightLayerStats]] = Field(None, description="Weight snapshots. Present when track_weights=True.")
-    activations: Optional[Dict[str, ActivationStats]] = Field(None, description="Activation stats. Present when track_activations=True.")
-    attention_entropy: Optional[Dict[str, AttentionEntropyStats]] = Field(None, description="Attention entropy. Present when track_attention_entropy=True.")
     profiler: Optional[EpochProfiler] = Field(None, description="Profiler results. Present when profile_step() was called.")
     memory: Optional[EpochMemory] = Field(None, description="Memory usage. Present when track_memory=True.")
     system: Optional[EpochSystem] = Field(None, description="System resources. Present when track_system_resources=True.")
@@ -477,17 +403,13 @@ class LossTrend(BaseModel):
     improved: bool = Field(description="Whether last < first.")
 
 
-class GradientHealthSummary(BaseModel):
-    """Gradient health aggregated across epochs."""
-    epochs_with_issues: int = Field(description="Epochs that had at least one gradient issue.")
-    total_issues: int = Field(description="Cumulative gradient issues across all epochs.")
-
-
 class ProfilerHighlight(BaseModel):
     """Key stats from the last profiled epoch."""
     fwd_bwd_ratio: Optional[float] = Field(None, description="Forward / backward time ratio.")
     top_op: Optional[str] = Field(None, description="Name of the most expensive operation.")
     top_op_pct: Optional[float] = Field(None, description="% of total CPU time for the top op.")
+    top_layer: Optional[str] = Field(None, description="Name of the most expensive layer.")
+    top_layer_pct: Optional[float] = Field(None, description="% of total layer time for the top layer.")
 
 
 class Summary(BaseModel):
@@ -497,7 +419,6 @@ class Summary(BaseModel):
     total_epochs: Optional[int] = Field(None, description="Number of epochs recorded.")
     total_duration_s: Optional[float] = Field(None, description="Sum of all epoch durations (seconds).")
     loss_trend: Optional[LossTrend] = Field(None, description="Loss progression across epochs.")
-    gradient_health: Optional[GradientHealthSummary] = Field(None, description="Gradient health across epochs.")
     avg_tokens_per_sec: Optional[float] = Field(None, description="Average throughput across epochs.")
     profiler_highlight: Optional[ProfilerHighlight] = Field(None, description="Key stats from last profiled epoch.")
     status: Optional[str] = Field(None, description="'no_data' if no epochs were recorded.")
