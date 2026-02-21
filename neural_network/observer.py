@@ -53,6 +53,7 @@ class ObserverConfig:
     track_system_resources: bool = True
 
     # Profiler tuning
+    profile_at_step: Optional[int] = 0  # Which step within each epoch to profile (None = never)
     profiler_record_shapes: bool = True
     profiler_profile_memory: bool = True
     profiler_with_stack: bool = False
@@ -100,22 +101,20 @@ class Observer:
 
     Quickstart
     ----------
-    >>> config = ObserverConfig(track_profiler=True)
+    >>> config = ObserverConfig(track_profiler=True, profile_at_step=0)
     >>> obs = Observer(api_key="key-123", project_id="proj-abc", config=config)
     >>> obs.log_hyperparameters({"lr": 3e-4, "batch_size": 64, ...})
     >>> obs.register_model(model)
     >>>
     >>> for epoch in range(num_epochs):
-    ...     obs.start_epoch(epoch)
     ...     for step, (x, y) in enumerate(loader):
-    ...         # On first batch, run a profiled step
-    ...         if step == 0 and config.track_profiler:
+    ...         if obs.should_profile(step):
     ...             logits, loss = obs.profile_step(model, x, y)
     ...         else:
     ...             logits, loss = model(x, y)
-    ...         loss.backward()
+    ...             loss.backward()
     ...         optimizer.step(); optimizer.zero_grad()
-    ...         obs.log_batch(step, loss, batch_size=x.size(0), seq_length=x.size(1))
+    ...         obs.step(epoch, step, loss, batch_size=x.size(0), seq_length=x.size(1))
     ...     val_metrics = evaluate()
     ...     report = obs.end_epoch(epoch, val_metrics=val_metrics)
     >>>
@@ -476,8 +475,8 @@ class Observer:
     # Epoch lifecycle
     # ==================================================================
 
-    def start_epoch(self, epoch: int):
-        """Call at the beginning of each epoch."""
+    def _start_epoch(self, epoch: int):
+        """Internal: reset per-epoch state when a new epoch begins."""
         self._current_epoch = epoch
         self._epoch_start_time = time.time()
         self._epoch_batch_losses.clear()
@@ -491,14 +490,43 @@ class Observer:
 
         self._log.info(f"--- Epoch {epoch} started ---")
 
-    def log_batch(
+    def should_profile(self, step: int) -> bool:
+        """Return True if profiling should run on this step."""
+        return (
+            self.config.track_profiler
+            and self.config.profile_at_step is not None
+            and step == self.config.profile_at_step
+        )
+
+    def step(
         self,
-        batch_idx: int,
+        epoch: int,
+        step: int,
         loss,
         batch_size: Optional[int] = None,
         seq_length: Optional[int] = None,
     ):
-        """Record metrics for a single training step within an epoch."""
+        """
+        Record a single training step. Automatically initialises a new
+        epoch the first time a new epoch number is seen.
+
+        Parameters
+        ----------
+        epoch : int
+            Current epoch number.
+        step : int
+            Batch / step index within the epoch.
+        loss : torch.Tensor | float
+            Loss value for this step.
+        batch_size : int, optional
+            Number of samples in this batch.
+        seq_length : int, optional
+            Sequence length per sample (for token throughput).
+        """
+        # Auto-start a new epoch when the epoch number changes
+        if self._current_epoch is None or self._current_epoch != epoch:
+            self._start_epoch(epoch)
+
         loss_val = loss.item() if isinstance(loss, torch.Tensor) else float(loss)
         self._epoch_batch_losses.append(loss_val)
         self._epoch_batch_times.append(time.time())
