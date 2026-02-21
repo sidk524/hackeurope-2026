@@ -1,0 +1,736 @@
+{
+    "$schema": "observer/v1",
+    "$description": "Schema for the Observer JSON report. Every key in the exported JSON is documented here with its type, description, and — for objects — its nested fields. Fields marked 'conditional' only appear when their corresponding ObserverConfig flag is enabled.",
+    "root": {
+        "type": "object",
+        "fields": {
+            "schema": {
+                "type": "object",
+                "description": "This schema document (self-describing). Present when include_schema=true."
+            },
+            "session": {
+                "type": "object",
+                "description": "Run-level metadata captured at init and close.",
+                "fields": {
+                    "api_key_prefix": {
+                        "type": "string",
+                        "description": "First 8 chars of the API key (masked)."
+                    },
+                    "project_id": {
+                        "type": "string",
+                        "description": "Project identifier."
+                    },
+                    "run_id": {
+                        "type": "string",
+                        "description": "Unique run ID = project_id + run_name."
+                    },
+                    "run_name": {
+                        "type": "string",
+                        "description": "Human-readable run label."
+                    },
+                    "started_at": {
+                        "type": "string",
+                        "description": "ISO-8601 timestamp when Observer was created."
+                    },
+                    "ended_at": {
+                        "type": "string|null",
+                        "description": "ISO-8601 timestamp when close() was called."
+                    },
+                    "device": {
+                        "type": "string",
+                        "description": "Compute device name (e.g. 'cpu', 'NVIDIA A100')."
+                    },
+                    "cuda_available": {
+                        "type": "boolean",
+                        "description": "Whether CUDA was available."
+                    },
+                    "pytorch_version": {
+                        "type": "string",
+                        "description": "PyTorch version string."
+                    },
+                    "config": {
+                        "type": "object",
+                        "description": "Snapshot of the ObserverConfig used for this run."
+                    }
+                }
+            },
+            "hyperparameters": {
+                "type": "object",
+                "description": "User-supplied training hyperparameters (free-form key-value).",
+                "fields": "{ <param_name>: <value>, ... }"
+            },
+            "model_architecture": {
+                "type": "object",
+                "description": "Static model analysis captured once at register_model().",
+                "fields": {
+                    "total_parameters": {
+                        "type": "int",
+                        "description": "Total number of parameters."
+                    },
+                    "trainable_parameters": {
+                        "type": "int",
+                        "description": "Parameters with requires_grad=true."
+                    },
+                    "frozen_parameters": {
+                        "type": "int",
+                        "description": "Parameters with requires_grad=False."
+                    },
+                    "num_parameter_layers": {
+                        "type": "int",
+                        "description": "Count of modules that own at least one parameter."
+                    },
+                    "layers": {
+                        "type": "object",
+                        "description": "Map of module_name -> basic layer info.",
+                        "fields": "{ <module_name>: { type: str, parameters: int, pct_of_total: float } }"
+                    },
+                    "module_tree": {
+                        "type": "object",
+                        "description": "Recursive tree mirroring nn.Module nesting. Each node has 'type' and optional 'children'."
+                    },
+                    "layer_graph": {
+                        "type": "object",
+                        "description": "Full layer graph for architecture visualization. Conditional: track_layer_graph=true.",
+                        "fields": {
+                            "nodes": {
+                                "type": "array",
+                                "description": "Ordered list of every module in the model.",
+                                "items": {
+                                    "type": "object",
+                                    "fields": {
+                                        "id": {
+                                            "type": "string",
+                                            "description": "Fully-qualified module name (e.g. 'blocks.0.sa.heads.0.key')."
+                                        },
+                                        "type": {
+                                            "type": "string",
+                                            "description": "Class name (e.g. 'Linear', 'LayerNorm', 'Head')."
+                                        },
+                                        "is_container": {
+                                            "type": "boolean",
+                                            "description": "true if the module has child modules."
+                                        },
+                                        "category": {
+                                            "type": "string",
+                                            "description": "One of: linear, embedding, normalization, activation, regularization, convolution, attention, container, custom."
+                                        },
+                                        "neurons": {
+                                            "type": "int|list",
+                                            "description": "Output neuron count / dimension. Varies by layer type.",
+                                            "conditional": true
+                                        },
+                                        "in_features": {
+                                            "type": "int",
+                                            "description": "Input dimension (Linear).",
+                                            "conditional": true
+                                        },
+                                        "out_features": {
+                                            "type": "int",
+                                            "description": "Output dimension (Linear).",
+                                            "conditional": true
+                                        },
+                                        "has_bias": {
+                                            "type": "boolean",
+                                            "description": "Whether the layer has a bias vector.",
+                                            "conditional": true
+                                        },
+                                        "weight_shape": {
+                                            "type": "array",
+                                            "description": "Shape of the weight tensor, e.g. [512, 128].",
+                                            "conditional": true
+                                        },
+                                        "bias_shape": {
+                                            "type": "array",
+                                            "description": "Shape of the bias tensor, e.g. [512].",
+                                            "conditional": true
+                                        },
+                                        "num_embeddings": {
+                                            "type": "int",
+                                            "description": "Vocabulary size (Embedding).",
+                                            "conditional": true
+                                        },
+                                        "embedding_dim": {
+                                            "type": "int",
+                                            "description": "Embedding vector dimension (Embedding).",
+                                            "conditional": true
+                                        },
+                                        "normalized_shape": {
+                                            "type": "array",
+                                            "description": "Shape being normalized (LayerNorm).",
+                                            "conditional": true
+                                        },
+                                        "eps": {
+                                            "type": "float",
+                                            "description": "Epsilon for numerical stability (LayerNorm/BatchNorm).",
+                                            "conditional": true
+                                        },
+                                        "p": {
+                                            "type": "float",
+                                            "description": "Dropout probability (Dropout).",
+                                            "conditional": true
+                                        },
+                                        "in_channels": {
+                                            "type": "int",
+                                            "description": "Input channels (Conv).",
+                                            "conditional": true
+                                        },
+                                        "out_channels": {
+                                            "type": "int",
+                                            "description": "Output channels (Conv).",
+                                            "conditional": true
+                                        },
+                                        "kernel_size": {
+                                            "type": "array",
+                                            "description": "Kernel dimensions (Conv).",
+                                            "conditional": true
+                                        },
+                                        "stride": {
+                                            "type": "array",
+                                            "description": "Stride dimensions (Conv).",
+                                            "conditional": true
+                                        },
+                                        "padding": {
+                                            "type": "array",
+                                            "description": "Padding dimensions (Conv).",
+                                            "conditional": true
+                                        },
+                                        "embed_dim": {
+                                            "type": "int",
+                                            "description": "Total embedding dimension (MultiheadAttention).",
+                                            "conditional": true
+                                        },
+                                        "num_heads": {
+                                            "type": "int",
+                                            "description": "Number of attention heads (MultiheadAttention).",
+                                            "conditional": true
+                                        },
+                                        "head_dim": {
+                                            "type": "int",
+                                            "description": "Per-head dimension (MultiheadAttention).",
+                                            "conditional": true
+                                        },
+                                        "num_children": {
+                                            "type": "int",
+                                            "description": "Number of child modules (Sequential/ModuleList).",
+                                            "conditional": true
+                                        },
+                                        "parameters": {
+                                            "type": "object",
+                                            "description": "Per-tensor parameter details. Keys are param names (e.g. 'weight', 'bias').",
+                                            "conditional": true,
+                                            "items": {
+                                                "shape": {
+                                                    "type": "array",
+                                                    "description": "Tensor dimensions."
+                                                },
+                                                "numel": {
+                                                    "type": "int",
+                                                    "description": "Total number of elements."
+                                                },
+                                                "dtype": {
+                                                    "type": "string",
+                                                    "description": "Data type (e.g. 'torch.float32')."
+                                                },
+                                                "requires_grad": {
+                                                    "type": "boolean",
+                                                    "description": "Whether this tensor is trainable."
+                                                },
+                                                "mean": {
+                                                    "type": "float",
+                                                    "description": "Mean of initial weight values."
+                                                },
+                                                "std": {
+                                                    "type": "float",
+                                                    "description": "Std dev of initial weight values."
+                                                },
+                                                "norm": {
+                                                    "type": "float",
+                                                    "description": "L2 norm of initial weight values."
+                                                }
+                                            }
+                                        },
+                                        "total_params": {
+                                            "type": "int",
+                                            "description": "Sum of numel across all own parameters.",
+                                            "conditional": true
+                                        },
+                                        "buffers": {
+                                            "type": "object",
+                                            "description": "Non-parameter persistent tensors (e.g. causal masks, running stats).",
+                                            "conditional": true,
+                                            "items": {
+                                                "shape": {
+                                                    "type": "array",
+                                                    "description": "Buffer tensor shape."
+                                                },
+                                                "dtype": {
+                                                    "type": "string",
+                                                    "description": "Buffer data type."
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "edges": {
+                                "type": "array",
+                                "description": "Connections between modules.",
+                                "items": {
+                                    "type": "object",
+                                    "fields": {
+                                        "source": {
+                                            "type": "string",
+                                            "description": "Source module ID."
+                                        },
+                                        "target": {
+                                            "type": "string",
+                                            "description": "Target module ID."
+                                        },
+                                        "relation": {
+                                            "type": "string",
+                                            "description": "'contains' (structural parent-child) or 'data_flow' (sequential forward pass)."
+                                        }
+                                    }
+                                }
+                            },
+                            "sequential_path": {
+                                "type": "array",
+                                "description": "Ordered list of compute-layer IDs in forward-pass order (excludes containers).",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "dimension_flow": {
+                                "type": "array",
+                                "description": "Concise summary of how tensor dimensions transform through the network.",
+                                "items": {
+                                    "type": "object",
+                                    "fields": {
+                                        "layer": {
+                                            "type": "string",
+                                            "description": "Module name."
+                                        },
+                                        "type": {
+                                            "type": "string",
+                                            "description": "Layer class (Linear, Embedding, LayerNorm, Conv*)."
+                                        },
+                                        "in": {
+                                            "type": "int",
+                                            "description": "Input dimension (Linear).",
+                                            "conditional": true
+                                        },
+                                        "out": {
+                                            "type": "int",
+                                            "description": "Output dimension (Linear).",
+                                            "conditional": true
+                                        },
+                                        "vocab": {
+                                            "type": "int",
+                                            "description": "Vocabulary size (Embedding).",
+                                            "conditional": true
+                                        },
+                                        "dim": {
+                                            "type": "int",
+                                            "description": "Embedding dimension (Embedding).",
+                                            "conditional": true
+                                        },
+                                        "shape": {
+                                            "type": "array",
+                                            "description": "Normalized shape (LayerNorm).",
+                                            "conditional": true
+                                        },
+                                        "in_ch": {
+                                            "type": "int",
+                                            "description": "Input channels (Conv).",
+                                            "conditional": true
+                                        },
+                                        "out_ch": {
+                                            "type": "int",
+                                            "description": "Output channels (Conv).",
+                                            "conditional": true
+                                        },
+                                        "kernel": {
+                                            "type": "array",
+                                            "description": "Kernel size (Conv).",
+                                            "conditional": true
+                                        }
+                                    }
+                                }
+                            },
+                            "total_compute_layers": {
+                                "type": "int",
+                                "description": "Count of non-container leaf compute layers."
+                            },
+                            "total_nodes": {
+                                "type": "int",
+                                "description": "Total node count in the graph."
+                            },
+                            "total_edges": {
+                                "type": "int",
+                                "description": "Total edge count in the graph."
+                            }
+                        }
+                    }
+                }
+            },
+            "epochs": {
+                "type": "array",
+                "description": "Per-epoch telemetry records, one entry per end_epoch() call.",
+                "items": {
+                    "type": "object",
+                    "fields": {
+                        "epoch": {
+                            "type": "int",
+                            "description": "Epoch index."
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "description": "ISO-8601 time when end_epoch() was called."
+                        },
+                        "duration_seconds": {
+                            "type": "float",
+                            "description": "Wall-clock seconds for this epoch."
+                        },
+                        "loss": {
+                            "type": "object",
+                            "description": "Loss statistics for this epoch. Conditional: track_loss=true.",
+                            "fields": {
+                                "train_mean": {
+                                    "type": "float",
+                                    "description": "Mean batch loss across all batches."
+                                },
+                                "train_min": {
+                                    "type": "float",
+                                    "description": "Minimum batch loss."
+                                },
+                                "train_max": {
+                                    "type": "float",
+                                    "description": "Maximum batch loss."
+                                },
+                                "train_first": {
+                                    "type": "float",
+                                    "description": "Loss of the first batch."
+                                },
+                                "train_last": {
+                                    "type": "float",
+                                    "description": "Loss of the last batch."
+                                },
+                                "train_std": {
+                                    "type": "float",
+                                    "description": "Std dev of batch losses."
+                                },
+                                "num_batches": {
+                                    "type": "int",
+                                    "description": "Number of batches in this epoch."
+                                },
+                                "val": {
+                                    "type": "object",
+                                    "description": "Validation metrics passed to end_epoch(). { <metric_name>: float }",
+                                    "conditional": true
+                                }
+                            }
+                        },
+                        "throughput": {
+                            "type": "object",
+                            "description": "Speed metrics. Conditional: track_throughput=true.",
+                            "fields": {
+                                "samples_processed": {
+                                    "type": "int",
+                                    "description": "Total samples processed this epoch."
+                                },
+                                "tokens_processed": {
+                                    "type": "int",
+                                    "description": "Total tokens processed this epoch."
+                                },
+                                "samples_per_second": {
+                                    "type": "float",
+                                    "description": "Samples / wall-clock second."
+                                },
+                                "tokens_per_second": {
+                                    "type": "float",
+                                    "description": "Tokens / wall-clock second."
+                                },
+                                "batches_per_second": {
+                                    "type": "float",
+                                    "description": "Batches / wall-clock second."
+                                },
+                                "seconds_per_batch": {
+                                    "type": "float",
+                                    "description": "Average wall-clock seconds per batch."
+                                }
+                            }
+                        },
+                        "gradients": {
+                            "type": "object",
+                            "description": "Gradient health snapshot taken at end of epoch. Conditional: track_gradients=true.",
+                            "fields": {
+                                "total_norm": {
+                                    "type": "float",
+                                    "description": "Global L2 norm across all parameter gradients."
+                                },
+                                "num_layers": {
+                                    "type": "int",
+                                    "description": "Number of layers with gradients."
+                                },
+                                "health": {
+                                    "type": "string",
+                                    "description": "'healthy' or 'warning'."
+                                },
+                                "issues": {
+                                    "type": "array",
+                                    "description": "List of detected gradient issues.",
+                                    "items": {
+                                        "layer": {
+                                            "type": "string",
+                                            "description": "Parameter name."
+                                        },
+                                        "issue": {
+                                            "type": "string",
+                                            "description": "One of: 'exploding', 'vanishing', 'NaN', 'Inf'."
+                                        },
+                                        "norm": {
+                                            "type": "float",
+                                            "description": "Gradient norm (for exploding/vanishing).",
+                                            "conditional": true
+                                        }
+                                    }
+                                },
+                                "per_layer": {
+                                    "type": "object",
+                                    "description": "{ <param_name>: { norm, mean, std, abs_mean, min, max } }"
+                                }
+                            }
+                        },
+                        "weights": {
+                            "type": "object",
+                            "description": "Weight distribution snapshot. Conditional: track_weights=true.",
+                            "fields": "{ <param_name>: { mean: float, std: float, norm: float, min: float, max: float, numel: int } }"
+                        },
+                        "activations": {
+                            "type": "object",
+                            "description": "Activation statistics per hooked layer. Conditional: track_activations=true.",
+                            "fields": "{ <layer_name>: { mean, std, min, max, abs_mean, dead_fraction, saturated_fraction, shape } }"
+                        },
+                        "attention_entropy": {
+                            "type": "object",
+                            "description": "Attention output entropy per head/layer. Conditional: track_attention_entropy=true.",
+                            "fields": "{ <layer_name>: { output_entropy, max_possible_entropy, entropy_ratio, output_sparsity } }"
+                        },
+                        "profiler": {
+                            "type": "object",
+                            "description": "PyTorch Profiler results from profile_step(). Conditional: track_profiler=true and profile_step() was called.",
+                            "fields": {
+                                "total_cpu_time_ms": {
+                                    "type": "float",
+                                    "description": "Total CPU time across all ops (ms)."
+                                },
+                                "total_cuda_time_ms": {
+                                    "type": "float",
+                                    "description": "Total CUDA time across all ops (ms)."
+                                },
+                                "forward_time_ms": {
+                                    "type": "float",
+                                    "description": "CPU time in forward pass (ms)."
+                                },
+                                "backward_time_ms": {
+                                    "type": "float",
+                                    "description": "CPU time in backward pass (ms)."
+                                },
+                                "fwd_bwd_ratio": {
+                                    "type": "float",
+                                    "description": "Forward time / backward time."
+                                },
+                                "num_unique_ops": {
+                                    "type": "int",
+                                    "description": "Number of unique operator types."
+                                },
+                                "top_operations": {
+                                    "type": "array",
+                                    "description": "Top N ops sorted by CPU time.",
+                                    "items": "{ name, calls, cpu_time_us, cpu_time_ms, avg_cpu_us, cuda_time_us?, cuda_time_ms?, cpu_mem_bytes?, cuda_mem_bytes?, input_shapes? }"
+                                },
+                                "operation_categories": {
+                                    "type": "object",
+                                    "description": "Aggregated timing by category (matrix_ops, softmax, normalization, dropout, embedding, loss, activation_fn, convolution, optimizer, forward_pass, backward_pass, other).",
+                                    "fields": "{ <category>: { cpu_time_ms, cuda_time_ms, calls, pct_cpu } }"
+                                }
+                            }
+                        },
+                        "memory": {
+                            "type": "object",
+                            "description": "Memory usage snapshot. Conditional: track_memory=true.",
+                            "fields": {
+                                "process_rss_mb": {
+                                    "type": "float|null",
+                                    "description": "Process resident set size in MB (requires psutil)."
+                                },
+                                "process_vms_mb": {
+                                    "type": "float|null",
+                                    "description": "Process virtual memory size in MB (requires psutil)."
+                                },
+                                "cuda_allocated_mb": {
+                                    "type": "float",
+                                    "description": "CUDA memory currently allocated (MB).",
+                                    "conditional": "cuda"
+                                },
+                                "cuda_reserved_mb": {
+                                    "type": "float",
+                                    "description": "CUDA memory currently reserved (MB).",
+                                    "conditional": "cuda"
+                                },
+                                "cuda_peak_allocated_mb": {
+                                    "type": "float",
+                                    "description": "Peak CUDA memory allocated this epoch (MB).",
+                                    "conditional": "cuda"
+                                },
+                                "cuda_peak_reserved_mb": {
+                                    "type": "float",
+                                    "description": "Peak CUDA memory reserved this epoch (MB).",
+                                    "conditional": "cuda"
+                                }
+                            }
+                        },
+                        "system": {
+                            "type": "object",
+                            "description": "System resource snapshot. Conditional: track_system_resources=true.",
+                            "fields": {
+                                "cpu_percent": {
+                                    "type": "float",
+                                    "description": "CPU utilization %."
+                                },
+                                "ram_total_gb": {
+                                    "type": "float",
+                                    "description": "Total system RAM in GB."
+                                },
+                                "ram_used_gb": {
+                                    "type": "float",
+                                    "description": "Used system RAM in GB."
+                                },
+                                "ram_percent": {
+                                    "type": "float",
+                                    "description": "RAM utilization %."
+                                },
+                                "gpu_name": {
+                                    "type": "string",
+                                    "description": "GPU device name.",
+                                    "conditional": "cuda"
+                                },
+                                "gpu_total_mem_mb": {
+                                    "type": "float",
+                                    "description": "Total GPU memory (MB).",
+                                    "conditional": "cuda"
+                                }
+                            }
+                        },
+                        "log_counts": {
+                            "type": "object",
+                            "description": "Running count of captured log entries.",
+                            "fields": {
+                                "console": {
+                                    "type": "int",
+                                    "description": "Total console log entries so far."
+                                },
+                                "error": {
+                                    "type": "int",
+                                    "description": "Total error/warning log entries so far."
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "console_logs": {
+                "type": "array",
+                "description": "Captured INFO+ log records. Conditional: track_console_logs=true.",
+                "items": "{ ts: ISO-8601, level: string, msg: string, module: string, lineno: int }"
+            },
+            "error_logs": {
+                "type": "array",
+                "description": "Captured WARNING+ log records. Conditional: track_error_logs=true.",
+                "items": "{ ts: ISO-8601, level: string, msg: string, module: string, lineno: int }"
+            },
+            "summary": {
+                "type": "object",
+                "description": "Aggregated summary computed at export time.",
+                "fields": {
+                    "total_epochs": {
+                        "type": "int",
+                        "description": "Number of epochs recorded."
+                    },
+                    "total_duration_s": {
+                        "type": "float",
+                        "description": "Sum of all epoch durations (seconds)."
+                    },
+                    "loss_trend": {
+                        "type": "object",
+                        "description": "Loss progression across epochs.",
+                        "conditional": true,
+                        "fields": {
+                            "first": {
+                                "type": "float",
+                                "description": "Train loss mean of first epoch."
+                            },
+                            "last": {
+                                "type": "float",
+                                "description": "Train loss mean of last epoch."
+                            },
+                            "best": {
+                                "type": "float",
+                                "description": "Lowest train loss mean across epochs."
+                            },
+                            "worst": {
+                                "type": "float",
+                                "description": "Highest train loss mean across epochs."
+                            },
+                            "delta": {
+                                "type": "float",
+                                "description": "first - last (positive = improvement)."
+                            },
+                            "improved": {
+                                "type": "boolean",
+                                "description": "Whether last < first."
+                            }
+                        }
+                    },
+                    "gradient_health": {
+                        "type": "object",
+                        "fields": {
+                            "epochs_with_issues": {
+                                "type": "int",
+                                "description": "Epochs that had at least one gradient issue."
+                            },
+                            "total_issues": {
+                                "type": "int",
+                                "description": "Cumulative gradient issues across all epochs."
+                            }
+                        }
+                    },
+                    "avg_tokens_per_sec": {
+                        "type": "float",
+                        "description": "Average throughput across epochs.",
+                        "conditional": true
+                    },
+                    "profiler_highlight": {
+                        "type": "object",
+                        "description": "Key stats from the last profiled epoch.",
+                        "conditional": true,
+                        "fields": {
+                            "fwd_bwd_ratio": {
+                                "type": "float",
+                                "description": "Forward / backward time ratio."
+                            },
+                            "top_op": {
+                                "type": "string|null",
+                                "description": "Name of the most expensive operation."
+                            },
+                            "top_op_pct": {
+                                "type": "float|null",
+                                "description": "% of total CPU time for the top op."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
