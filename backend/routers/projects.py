@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlmodel import select
 from pydantic import BaseModel
-from backend.database import SessionDep
-from backend.models import Project
+from database import SessionDep
+from models import Project
 
 router = APIRouter(
     prefix="/projects",

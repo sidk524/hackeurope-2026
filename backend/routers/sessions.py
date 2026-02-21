@@ -3,8 +3,8 @@ from pydantic import BaseModel
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
-from backend.database import SessionDep
-from backend.models import TrainSession
+from database import SessionDep
+from models import TrainSession, SessionStatus
 
 
 router = APIRouter(
@@ -34,9 +34,9 @@ class TrainSessionUpdate(BaseModel):
 @router.post("/project/{project_id}", response_model=TrainSession)
 def create_train_session(project_id: int, train_session: TrainSessionCreate, session: SessionDep):
     train_session = TrainSession(project_id=project_id, **train_session.model_dump())
-    train_session.add(train_session)
-    train_session.commit()
-    train_session.refresh(train_session)
+    session.add(train_session)
+    session.commit()
+    session.refresh(train_session)
     return train_session
 
     
@@ -55,21 +55,21 @@ def get_train_session(session_id: int, session: SessionDep):
 
 
 @router.patch("/{session_id}", response_model=TrainSession)
-def update_train_session(session_id: int, train_session: TrainSessionUpdate, session: SessionDep):
-    session = session.get(TrainSession, session_id)
-    if not session:
+def update_train_session(session_id: int, train_session_update: TrainSessionUpdate, session: SessionDep):
+    train_session_db = session.get(TrainSession, session_id)
+    if not train_session_db:
         raise HTTPException(status_code=404, detail="Session not found")
-    train_session.update(train_session.model_dump(exclude_unset=True))
+    train_session_db.sqlmodel_update(train_session_update.model_dump(exclude_unset=True))
     session.commit()
-    session.refresh(train_session)
-    return train_session
+    session.refresh(train_session_db)
+    return train_session_db
 
 
-@router.get("/{session_id}/status", response_model=Literal["running", "completed", "failed", "paused", "pending"])
+@router.get("/{session_id}/status", response_model=SessionStatus)
 def get_train_session_status(session_id: int, session: SessionDep):
-    session = session.get(TrainSession, session_id)
-    if not session:
+    train_session = train_session.get(TrainSession, session_id)
+    if not train_session:
         raise HTTPException(status_code=404, detail="Session not found")
-    return session.status
+    return train_session.status
 
     

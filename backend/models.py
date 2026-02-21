@@ -1,8 +1,21 @@
 from datetime import datetime
-from typing import Any, Literal
+from enum import Enum
+from typing import Any
 
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship, SQLModel
+
+class SessionStatus(str, Enum):
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    paused = "paused"
+    pending = "pending"
+
+
+class LogKind(str, Enum):
+    console = "console"
+    error = "error"
 
 
 class Project(SQLModel, table=True):
@@ -26,42 +39,41 @@ class TrainSession(SQLModel, table=True):
     config: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON()))
     summary: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON()))
 
-    status: Literal["running", "completed", "failed", "paused", "pending"] = "running"
+    status: SessionStatus = SessionStatus.running
 
     project: Project = Relationship(back_populates="sessions")
-    epochs: list["Epoch"] = Relationship(back_populates="session")
+    steps: list["TrainStep"] = Relationship(back_populates="session")
     session_logs: list["SessionLog"] = Relationship(back_populates="session")
-    model: "Model | None" = Relationship(back_populates="session")
-
+    models: list["Model"] = Relationship(back_populates="session")
 
 
 class Model(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
-    session_id: int = Field(foreign_key="session.id", unique=True)
+    session_id: int = Field(foreign_key="trainsession.id", unique=True)
     architecture: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
     hyperparameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
 
-    session: TrainSession = Relationship(back_populates="model")
+    session: TrainSession = Relationship(back_populates="models")
 
 class TrainStep(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
-    session_id: int = Field(foreign_key="session.id")
-    epoch_index: int
+    session_id: int = Field(foreign_key="trainsession.id")
+    step_index: int
     timestamp: str
     duration_seconds: float
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
 
-    session: TrainSession = Relationship(back_populates="epochs")
+    session: TrainSession = Relationship(back_populates="steps")
 
 
 class SessionLog(SQLModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
-    session_id: int = Field(foreign_key="session.id")
+    session_id: int = Field(foreign_key="trainsession.id")
     ts: str
     level: str
     msg: str
     module: str = ""
     lineno: int = 0
-    kind: Literal["console", "error"] = "console"
+    kind: LogKind = LogKind.console
 
     session: TrainSession = Relationship(back_populates="session_logs")
