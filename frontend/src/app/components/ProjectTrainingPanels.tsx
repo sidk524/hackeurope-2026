@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import type { Model, TrainStep } from "@/lib/client";
+
 type TrainSession = {
   id: number;
   projectId: number;
@@ -12,7 +15,7 @@ type TrainSession = {
   pytorchVersion: string;
   config: Record<string, unknown> | null;
   summary: Record<string, unknown> | null;
-  status: "running" | "completed" | "failed" | "paused" | "pending";
+  status: "running" | "completed" | "failed" | "paused" | "pending" | "analyzing";
 };
 
 type TrainModel = {
@@ -20,15 +23,6 @@ type TrainModel = {
   sessionId: number;
   architecture: Record<string, unknown>;
   hyperparameters: Record<string, unknown>;
-};
-
-type TrainStep = {
-  id: number;
-  sessionId: number;
-  epochIndex: number;
-  timestamp: string;
-  durationSeconds: number;
-  payload: Record<string, unknown>;
 };
 
 type SessionLog = {
@@ -130,33 +124,6 @@ const SAMPLE_MODEL: TrainModel = {
   },
 };
 
-const SAMPLE_STEPS: TrainStep[] = [
-  {
-    id: 101,
-    sessionId: 17,
-    epochIndex: 12,
-    timestamp: "2026-02-21T08:04:12Z",
-    durationSeconds: 43.2,
-    payload: { train_loss: 0.392, val_loss: 0.344, val_acc: 0.913 },
-  },
-  {
-    id: 102,
-    sessionId: 17,
-    epochIndex: 13,
-    timestamp: "2026-02-21T08:05:01Z",
-    durationSeconds: 42.7,
-    payload: { train_loss: 0.361, val_loss: 0.332, val_acc: 0.917 },
-  },
-  {
-    id: 103,
-    sessionId: 17,
-    epochIndex: 14,
-    timestamp: "2026-02-21T08:05:45Z",
-    durationSeconds: 43.5,
-    payload: { train_loss: 0.348, val_loss: 0.326, val_acc: 0.919 },
-  },
-];
-
 const SAMPLE_LOGS: SessionLog[] = [
   {
     id: 501,
@@ -191,8 +158,9 @@ const SAMPLE_LOGS: SessionLog[] = [
 ];
 
 type SessionListProps = {
-  selectedProject: { token: string } | null;
+  selectedProject: { id?: number | null; name?: string } | null;
   sessions: TrainSession[];
+  sessionsLoading?: boolean;
   selectedSessionId: number | null;
   onSelectSession: (sessionId: number) => void;
 };
@@ -200,6 +168,7 @@ type SessionListProps = {
 function SessionList({
   selectedProject,
   sessions,
+  sessionsLoading = false,
   selectedSessionId,
   onSelectSession,
 }: SessionListProps) {
@@ -213,11 +182,11 @@ function SessionList({
           <h2 className="text-lg font-semibold">Runs per project</h2>
         </div>
         <span className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-400">
-          {sessions.length} runs
+          {sessionsLoading ? "Loading…" : `${sessions.length} runs`}
         </span>
       </div>
       {selectedProject ? (
-        <div className="mt-4 grid gap-3 text-sm text-zinc-200">
+        <div className="dark-scrollbar mt-4 grid max-h-80 gap-3 overflow-y-auto pr-2 text-sm text-zinc-200">
           {sessions.map((session) => (
             <button
               key={session.id}
@@ -372,7 +341,7 @@ function TrainSessionPanel({ session }: TrainSessionPanelProps) {
 
 type ModelPanelProps = {
   session: TrainSession | null;
-  model: TrainModel;
+  model: Model | null | undefined;
 };
 
 function ModelPanel({ session, model }: ModelPanelProps) {
@@ -389,14 +358,29 @@ function ModelPanel({ session, model }: ModelPanelProps) {
           Session {session ? `#${session.id}` : "—"}
         </span>
       </div>
-      {session ? (
+      {!session ? (
+        <p className="mt-4 text-xs text-zinc-500">
+          Select a run to inspect the bound model definition.
+        </p>
+      ) : model === undefined ? (
+        <p className="mt-4 text-xs text-zinc-500">Loading model…</p>
+      ) : model === null ? (
+        <p className="mt-4 text-xs text-zinc-500">
+          No model registered for this session.
+        </p>
+      ) : (
         <div className="mt-4 grid gap-3 text-sm text-zinc-200 md:grid-cols-2">
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
               Architecture
             </p>
             <div className="mt-3 grid gap-2">
-              {Object.entries(model.architecture).map(([key, value]) => (
+              {Object.entries(model.architecture ?? {})
+                .filter(
+                  ([key]) =>
+                    !["layers", "module_tree", "layer_graph"].includes(key)
+                )
+                .map(([key, value]) => (
                 <div
                   key={key}
                   className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
@@ -416,7 +400,7 @@ function ModelPanel({ session, model }: ModelPanelProps) {
               Hyperparameters
             </p>
             <div className="mt-3 grid gap-2">
-              {Object.entries(model.hyperparameters).map(([key, value]) => (
+              {Object.entries(model.hyperparameters ?? {}).map(([key, value]) => (
                 <div
                   key={key}
                   className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
@@ -432,10 +416,6 @@ function ModelPanel({ session, model }: ModelPanelProps) {
             </div>
           </div>
         </div>
-      ) : (
-        <p className="mt-4 text-xs text-zinc-500">
-          Select a project to inspect the bound model definition.
-        </p>
       )}
     </section>
   );
@@ -444,9 +424,16 @@ function ModelPanel({ session, model }: ModelPanelProps) {
 type TrainStepListProps = {
   session: TrainSession | null;
   steps: TrainStep[];
+  stepsLoading?: boolean;
 };
 
-function TrainStepList({ session, steps }: TrainStepListProps) {
+function TrainStepList({ session, steps, stepsLoading = false }: TrainStepListProps) {
+  const [expandedStepKey, setExpandedStepKey] = useState<number | null>(null);
+
+  const toggleStep = (key: number) => {
+    setExpandedStepKey((prev) => (prev === key ? null : key));
+  };
+
   return (
     <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -454,53 +441,106 @@ function TrainStepList({ session, steps }: TrainStepListProps) {
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
             Train steps
           </p>
-          <h2 className="text-lg font-semibold">Recent epochs</h2>
+          <h2 className="text-lg font-semibold">Recent steps</h2>
         </div>
         <span className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-400">
-          {steps.length} steps
+          {stepsLoading ? "Loading…" : `${steps.length} steps`}
         </span>
       </div>
-      {session ? (
-        <div className="mt-4 grid gap-3 text-sm text-zinc-200">
-          {steps.map((step) => (
-            <div
-              key={step.id}
-              className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-zinc-100">
-                  Epoch {step.epochIndex}
-                </p>
-                <span className="text-xs text-zinc-500">
-                  {step.durationSeconds.toFixed(1)}s
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400">
-                <span>{new Date(step.timestamp).toLocaleString()}</span>
-                <span>Payload</span>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {Object.entries(step.payload).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
-                  >
-                    <span className="uppercase tracking-[0.2em] text-zinc-500">
-                      {key.replace(/_/g, " ")}
-                    </span>
-                    <span className="font-medium text-zinc-200">
-                      {String(value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
+      {!session ? (
         <p className="mt-4 text-xs text-zinc-500">
-          Select a project to review recent training steps.
+          Select a run to review recent training steps.
         </p>
+      ) : stepsLoading ? (
+        <p className="mt-4 text-xs text-zinc-500">Loading steps…</p>
+      ) : (
+        <div className="mt-4 grid gap-3 text-sm text-zinc-200">
+          {steps.map((step) => {
+            const stepKey = step.id ?? step.step_index;
+            const isExpanded = expandedStepKey === stepKey;
+
+            const sections = [
+              { title: "Loss", data: step.loss },
+              { title: "Throughput", data: step.throughput },
+              { title: "Profiler", data: step.profiler },
+              { title: "Memory", data: step.memory },
+              { title: "System", data: step.system },
+              { title: "Layer health", data: step.layer_health ?? undefined },
+              { title: "Sustainability", data: step.sustainability ?? undefined },
+              { title: "Carbon emissions", data: step.carbon_emissions ?? undefined },
+              { title: "Log counts", data: step.log_counts ?? undefined },
+            ].filter((s): s is { title: string; data: Record<string, unknown> } => s.data != null && Object.keys(s.data).length > 0);
+
+            return (
+              <div
+                key={stepKey}
+                className="rounded-2xl border border-zinc-800 bg-zinc-900/40 overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleStep(stepKey)}
+                  aria-expanded={isExpanded}
+                  className="flex w-full flex-wrap items-center justify-between gap-2 p-4 text-left hover:bg-zinc-800/40"
+                >
+                  <p className="text-sm font-semibold text-zinc-100">
+                    Step {step.step_index}
+                  </p>
+                  <span className="flex items-center gap-2 text-xs text-zinc-500">
+                    {step.duration_seconds.toFixed(1)}s
+                    <span
+                      className={`inline-block transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      aria-hidden
+                    >
+                      ▼
+                    </span>
+                  </span>
+                </button>
+                <div className="border-t border-zinc-800 px-4 pb-4 pt-2 text-xs text-zinc-400">
+                  {new Date(step.timestamp).toLocaleString()}
+                </div>
+                {isExpanded && (
+                  <div className="flex flex-col gap-3 border-t border-zinc-800 p-4 pt-3">
+                    {sections.map(({ title, data }) => {
+                      const scalarEntries = Object.entries(data).filter(
+                        ([, value]) =>
+                          value === null ||
+                          typeof value === "string" ||
+                          typeof value === "number" ||
+                          typeof value === "boolean"
+                      );
+                      if (scalarEntries.length === 0) return null;
+                      return (
+                        <div
+                          key={title}
+                          className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3"
+                        >
+                          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                            {title}
+                          </p>
+                          <div className="flex flex-col gap-1.5">
+                            {scalarEntries.map(([key, value]) => (
+                              <div
+                                key={key}
+                                className="flex items-center justify-between gap-2 text-xs text-zinc-300"
+                              >
+                                <span className="truncate uppercase tracking-widest text-zinc-500">
+                                  {key.replace(/_/g, " ")}
+                                </span>
+                                <span className="shrink-0 font-medium text-zinc-200">
+                                  {value === null ? "—" : String(value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </section>
   );
@@ -509,9 +549,10 @@ function TrainStepList({ session, steps }: TrainStepListProps) {
 type SessionLogListProps = {
   session: TrainSession | null;
   logs: SessionLog[];
+  logsLoading?: boolean;
 };
 
-function SessionLogList({ session, logs }: SessionLogListProps) {
+function SessionLogList({ session, logs, logsLoading }: SessionLogListProps) {
   return (
     <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -521,38 +562,39 @@ function SessionLogList({ session, logs }: SessionLogListProps) {
           </p>
           <h2 className="text-lg font-semibold">Runtime output</h2>
         </div>
-        <span className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-400">
-          {logs.length} entries
-        </span>
       </div>
       {session ? (
         <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/80">
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500">
             <span className="uppercase tracking-[0.2em]">Console</span>
-            <span>{logs.length} lines</span>
+            <span>{logsLoading ? "Loading…" : `${logs.length} lines`}</span>
           </div>
           <div className="max-h-80 overflow-y-auto px-4 py-3 font-mono text-xs text-zinc-200">
-            {logs.map((log) => (
-              <div key={log.id} className="flex flex-wrap gap-2 py-1">
-                <span className="text-zinc-500">
-                  {new Date(log.ts).toLocaleTimeString()}
-                </span>
-                <span
-                  className={`font-semibold ${
-                    log.level === "ERROR" || log.kind === "error"
-                      ? "text-red-300"
-                      : log.level === "WARN"
-                        ? "text-amber-300"
-                        : "text-emerald-300"
-                  }`}
-                >
-                  {log.level}
-                </span>
-                <span className="text-zinc-500">{log.module}</span>
-                <span className="text-zinc-500">:{log.lineno}</span>
-                <span className="text-zinc-200">{log.msg}</span>
-              </div>
-            ))}
+            {logsLoading ? (
+              <p className="py-4 text-center text-zinc-500">Loading logs…</p>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} className="flex flex-wrap gap-2 py-1">
+                  <span className="text-zinc-500">
+                    {new Date(log.ts).toLocaleTimeString()}
+                  </span>
+                  <span
+                    className={`font-semibold ${
+                      log.level === "ERROR" || log.kind === "error"
+                        ? "text-red-300"
+                        : log.level === "WARN"
+                          ? "text-amber-300"
+                          : "text-emerald-300"
+                    }`}
+                  >
+                    {log.level}
+                  </span>
+                  <span className="text-zinc-500">{log.module}</span>
+                  <span className="text-zinc-500">:{log.lineno}</span>
+                  <span className="text-zinc-200">{log.msg}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       ) : (
@@ -568,7 +610,6 @@ export {
   SAMPLE_LOGS,
   SAMPLE_MODEL,
   SAMPLE_SESSIONS,
-  SAMPLE_STEPS,
   ModelPanel,
   SessionList,
   SessionLogList,
@@ -576,4 +617,4 @@ export {
   TrainStepList,
 };
 
-export type { SessionLog, TrainModel, TrainSession, TrainStep };
+export type { SessionLog, TrainSession, TrainStep };

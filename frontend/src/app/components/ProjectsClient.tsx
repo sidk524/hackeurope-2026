@@ -1,28 +1,48 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sendClaudePrompt } from "@/actions/agent";
+import type { Project } from "@/lib/client";
+import type { TrainSession as ApiTrainSession } from "@/lib/client";
+import {
+  getProjectsProjectsGetOptions,
+  createProjectProjectsPostMutation,
+  getProjectsProjectsGetQueryKey,
+  getTrainSessionsSessionsProjectProjectIdGetOptions,
+  getModelSessionsSessionIdModelGetOptions,
+  getStepsSessionsSessionIdStepGetOptions,
+  getSessionLogsSessionsSessionIdLogsGetOptions,
+} from "@/lib/client/@tanstack/react-query.gen";
 import {
   ModelPanel,
-  SAMPLE_LOGS,
-  SAMPLE_MODEL,
-  SAMPLE_SESSIONS,
-  SAMPLE_STEPS,
   SessionList,
   SessionLogList,
   TrainSessionPanel,
   TrainStepList,
 } from "./ProjectTrainingPanels";
+import type { TrainSession as PanelTrainSession } from "./ProjectTrainingPanels";
+
+function mapApiSessionToPanel(api: ApiTrainSession): PanelTrainSession {
+  return {
+    id: api.id ?? 0,
+    projectId: api.project_id,
+    runId: api.run_id,
+    runName: api.run_name,
+    startedAt: api.started_at,
+    endedAt: api.ended_at ?? null,
+    device: api.device ?? "",
+    cudaAvailable: api.cuda_available ?? false,
+    pytorchVersion: api.pytorch_version ?? "",
+    config: api.config ?? null,
+    summary: api.summary ?? null,
+    status: (api.status ?? "pending") as PanelTrainSession["status"],
+  };
+}
+
 import ThreeScene from "./ThreeScene";
 
-const STORAGE_KEY = "atlas-projects";
-const SELECTED_KEY = "atlas-selected-project-token";
-
-type Project = {
-  name: string;
-  token: string;
-  createdAt: string;
-};
+const SELECTED_PROJECT_ID_KEY = "atlas-selected-project-id";
 
 type ProjectsClientProps = {
   fontClassName: string;
@@ -36,133 +56,210 @@ const SUGGESTIONS = [
   "Instrument core flows to surface long tasks, then offload heavy work to workers.",
 ] as const;
 
-
-function generateToken() {
-  if (typeof globalThis.crypto?.randomUUID === "function") {
-    return globalThis.crypto.randomUUID();
-  }
-
-  if (typeof globalThis.crypto?.getRandomValues === "function") {
-    const bytes = new Uint8Array(16);
-    globalThis.crypto.getRandomValues(bytes);
-    return Array.from(bytes)
-      .map((value) => value.toString(16).padStart(2, "0"))
-      .join("");
-  }
-
-  return `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+function getStoredProjectId(): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(SELECTED_PROJECT_ID_KEY);
+  if (!raw) return null;
+  const id = Number(raw);
+  return Number.isNaN(id) ? null : id;
 }
 
-function getNextProjectNumber(projects: Project[]) {
-  if (projects.length === 0) return 1;
-
-  let max = 0;
-  for (const project of projects) {
-    const match = project.name.match(/(\d+)$/);
-    if (match) {
-      const value = Number(match[1]);
-      if (!Number.isNaN(value)) max = Math.max(max, value);
-    }
+function setStoredProjectId(id: number | null) {
+  if (typeof window === "undefined") return;
+  if (id == null) {
+    window.localStorage.removeItem(SELECTED_PROJECT_ID_KEY);
+  } else {
+    window.localStorage.setItem(SELECTED_PROJECT_ID_KEY, String(id));
   }
+}
 
-  return max + 1;
+function getRelativeRefreshLabel(at: Date, now: Date): string {
+  const sec = Math.floor((now.getTime() - at.getTime()) / 1000);
+  if (sec < 10) return "A few moments ago";
+  if (sec < 60) return "Less than a minute ago";
+  const min = Math.floor(sec / 60);
+  if (min === 1) return "A minute ago";
+  if (min < 60) return `${min} minutes ago`;
+  const hr = Math.floor(min / 60);
+  if (hr === 1) return "An hour ago";
+  if (hr < 24) return `${hr} hours ago`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return "A day ago";
+  return `${day} days ago`;
 }
 
 export default function ProjectsClient({
   fontClassName,
 }: ProjectsClientProps) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedToken, setSelectedToken] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+    getStoredProjectId
+  );
   const [isProjectsOpen, setIsProjectsOpen] = useState(true);
   const [claudeReply, setClaudeReply] = useState<string>("");
   const [claudeError, setClaudeError] = useState<string>("");
   const [isClaudeLoading, setIsClaudeLoading] = useState(false);
-  const hasLoadedRef = useRef(false);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
-    null,
+    null
+  );
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
+  const [, setTick] = useState(0);
+
+  // Tick every 30s so "last refresh" label updates
+  useEffect(() => {
+    if (lastRefreshAt == null) return;
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, [lastRefreshAt]);
+
+  const {
+    data: projects = [],
+    isLoading: isProjectsLoading,
+    isError: isProjectsError,
+    error: projectsError,
+  } = useQuery(getProjectsProjectsGetOptions());
+
+  const {
+    data: apiSessions = [],
+    isLoading: isSessionsLoading,
+  } = useQuery({
+    ...getTrainSessionsSessionsProjectProjectIdGetOptions({
+      path: { project_id: selectedProjectId ?? 0 },
+    }),
+    enabled: selectedProjectId != null,
+  });
+
+  const sessionsForProject = useMemo(
+    () => apiSessions.map(mapApiSessionToPanel),
+    [apiSessions]
   );
 
-  useEffect(() => {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      hasLoadedRef.current = true;
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as Project[];
-      if (Array.isArray(parsed)) {
-        setProjects(parsed);
+  const createProjectMutation = useMutation({
+    ...createProjectProjectsPostMutation(),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: getProjectsProjectsGetQueryKey() });
+      const id = created?.id ?? null;
+      if (id != null) {
+        setSelectedProjectId(id);
+        setStoredProjectId(id);
       }
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } finally {
-      const storedSelected = window.localStorage.getItem(SELECTED_KEY);
-      if (storedSelected) {
-        setSelectedToken(storedSelected);
-      }
-      hasLoadedRef.current = true;
-    }
-  }, []);
+    },
+  });
 
-  useEffect(() => {
-    if (!hasLoadedRef.current) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-  }, [projects]);
+  // Persist selection to localStorage when it changes
+  const handleSelectProject = (id: number) => {
+    setSelectedProjectId(id);
+    setStoredProjectId(id);
+  };
 
-  useEffect(() => {
-    if (!hasLoadedRef.current) return;
-    if (selectedToken) {
-      window.localStorage.setItem(SELECTED_KEY, selectedToken);
-    } else {
-      window.localStorage.removeItem(SELECTED_KEY);
-    }
-  }, [selectedToken]);
-
-  useEffect(() => {
-    if (!selectedToken) return;
-    const exists = projects.some((project) => project.token === selectedToken);
-    if (!exists) {
-      setSelectedToken(null);
-    }
-  }, [projects, selectedToken]);
-
-  const totalProjects = useMemo(() => projects.length, [projects.length]);
   const selectedProject = useMemo(
-    () => projects.find((project) => project.token === selectedToken) ?? null,
-    [projects, selectedToken],
+    () =>
+      selectedProjectId == null
+        ? null
+        : projects.find((p) => p.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId]
   );
+
+  // Clear selection if selected project no longer exists in the list
   useEffect(() => {
-    if (!selectedProject) {
-      setSelectedSessionId(null);
+    if (selectedProjectId == null) return;
+    const exists = projects.some((p) => p.id === selectedProjectId);
+    if (!exists) {
+      setSelectedProjectId(null);
+      setStoredProjectId(null);
+    }
+  }, [projects, selectedProjectId]);
+
+  // Auto-select newest session (first in list, backend returns newest-first).
+  // When a new run starts, it appears as first → we select it so logs/steps show the active run.
+  useEffect(() => {
+    if (!selectedProjectId || sessionsForProject.length === 0) {
+      if (!selectedProjectId) setSelectedSessionId(null);
       return;
     }
-    const session = SAMPLE_SESSIONS[0];
-    setSelectedSessionId(session?.id ?? null);
-  }, [selectedProject]);
+    const newest = sessionsForProject[0];
+    const currentInList = selectedSessionId != null && sessionsForProject.some((s) => s.id === selectedSessionId);
+    const shouldSelectNewest =
+      newest != null &&
+      (selectedSessionId == null || !currentInList || newest.id > selectedSessionId);
+    if (shouldSelectNewest) {
+      setSelectedSessionId(newest.id);
+    }
+  }, [selectedProjectId, sessionsForProject, selectedSessionId]);
+
   const activeSession = useMemo(
     () =>
-      selectedProject
-        ? SAMPLE_SESSIONS.find((session) => session.id === selectedSessionId) ??
-          SAMPLE_SESSIONS[0] ??
+      selectedProject && sessionsForProject.length > 0
+        ? sessionsForProject.find((s) => s.id === selectedSessionId) ??
+          sessionsForProject[0] ??
           null
         : null,
-    [selectedProject, selectedSessionId],
+    [selectedProject, sessionsForProject, selectedSessionId]
   );
 
-  const handleNewProject = () => {
-    const token = generateToken();
-    setProjects((prev) => {
-      const nextNumber = getNextProjectNumber(prev);
-      const project: Project = {
-        name: `Project ${nextNumber}`,
-        token,
-        createdAt: new Date().toISOString(),
-      };
+  const sessionIdForModel = activeSession?.id ?? null;
+  const {
+    data: apiModel,
+    isLoading: isModelLoading,
+    isError: isModelError,
+  } = useQuery({
+    ...getModelSessionsSessionIdModelGetOptions({
+      path: { session_id: sessionIdForModel ?? 0 },
+    }),
+    enabled: sessionIdForModel != null,
+  });
 
-      return [project, ...prev];
+  const modelForPanel =
+    sessionIdForModel == null
+      ? null
+      : isModelLoading
+        ? undefined
+        : isModelError || apiModel == null
+          ? null
+          : apiModel;
+
+  const {
+    data: apiSteps = [],
+    isLoading: isStepsLoading,
+  } = useQuery({
+    ...getStepsSessionsSessionIdStepGetOptions({
+      path: { session_id: sessionIdForModel ?? 0 },
+    }),
+    enabled: sessionIdForModel != null,
+  });
+
+  const {
+    data: apiLogs = [],
+    isLoading: isLogsLoading,
+  } = useQuery({
+    ...getSessionLogsSessionsSessionIdLogsGetOptions({
+      path: { session_id: sessionIdForModel ?? 0 },
+    }),
+    enabled: sessionIdForModel != null,
+    refetchInterval:
+      activeSession?.status === "running" || activeSession?.status === "analyzing"
+        ? 2_000
+        : false,
+  });
+
+  const logsForPanel = useMemo(() => {
+    return apiLogs.map((log) => ({
+      id: log.id ?? 0,
+      sessionId: log.session_id,
+      ts: log.ts,
+      level: log.level,
+      msg: log.msg,
+      module: log.module ?? "",
+      lineno: log.lineno ?? 0,
+      kind: (log.kind ?? "console") as "console" | "error",
+    }));
+  }, [apiLogs]);
+
+  const handleNewProject = () => {
+    const nextNumber = projects.length + 1;
+    createProjectMutation.mutate({
+      body: { name: `Project ${nextNumber}` },
     });
-    setSelectedToken(token);
   };
 
   const handleSuggestionClick = async (suggestion: string) => {
@@ -174,7 +271,7 @@ export default function ProjectsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           suggestion,
-          token: selectedProject.token,
+          token: String(selectedProject.id),
           projectName: selectedProject.name,
         }),
       });
@@ -183,6 +280,16 @@ export default function ProjectsClient({
     }
   };
 
+  const handleRefreshAll = () => {
+    queryClient.invalidateQueries();
+    setLastRefreshAt(new Date());
+  };
+
+  const lastRefreshLabel =
+    lastRefreshAt == null
+      ? null
+      : getRelativeRefreshLabel(lastRefreshAt, new Date());
+
   const handleClaudeTest = async () => {
     setClaudeError("");
     setClaudeReply("");
@@ -190,7 +297,7 @@ export default function ProjectsClient({
 
     try {
       const result = await sendClaudePrompt(
-        "What should I search for to find the latest developments in renewable energy?",
+        "What should I search for to find the latest developments in renewable energy?"
       );
       setClaudeReply(result.text || "No response text returned.");
     } catch (error) {
@@ -204,6 +311,35 @@ export default function ProjectsClient({
 
   return (
     <div className={`${fontClassName} min-h-screen bg-zinc-900 text-zinc-100`}>
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+        {lastRefreshLabel ? (
+          <span className="text-xs text-zinc-500">{lastRefreshLabel}</span>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleRefreshAll}
+          aria-label="Refresh all data"
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-zinc-200 shadow-lg shadow-black/30 transition hover:border-zinc-500 hover:bg-zinc-700 hover:text-white focus:outline-none"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 21h5v-5" />
+          </svg>
+        </button>
+      </div>
       <div className="relative isolate overflow-hidden">
         <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 pt-10">
           <div className="flex items-center gap-3">
@@ -222,9 +358,10 @@ export default function ProjectsClient({
             <button
               type="button"
               onClick={handleNewProject}
-              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-zinc-900 shadow-lg shadow-white/10"
+              disabled={createProjectMutation.isPending}
+              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-zinc-900 shadow-lg shadow-white/10 disabled:opacity-60"
             >
-              New project
+              {createProjectMutation.isPending ? "Creating…" : "New project"}
             </button>
           </div>
         </header>
@@ -234,13 +371,17 @@ export default function ProjectsClient({
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                    Local storage
+                    Projects
                   </p>
                   <h2 className="text-lg font-semibold">Your projects</h2>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-zinc-500">
-                    {totalProjects} total
+                    {isProjectsLoading
+                      ? "…"
+                      : isProjectsError
+                        ? "Error"
+                        : `${projects.length} total`}
                   </span>
                   <button
                     type="button"
@@ -254,9 +395,16 @@ export default function ProjectsClient({
               </div>
 
               {isProjectsOpen ? (
-                projects.length === 0 ? (
+                isProjectsError ? (
+                  <div className="mt-4 rounded-2xl border border-red-900/50 bg-red-950/20 px-4 py-5 text-sm text-red-300">
+                    Failed to load projects:{" "}
+                    {projectsError instanceof Error
+                      ? projectsError.message
+                      : "Unknown error"}
+                  </div>
+                ) : projects.length === 0 && !isProjectsLoading ? (
                   <div className="mt-4 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/40 px-4 py-5 text-sm text-zinc-400">
-                    No projects yet. Click "New project" to generate one.
+                    No projects yet. Click "New project" to create one.
                   </div>
                 ) : (
                   <div
@@ -266,42 +414,81 @@ export default function ProjectsClient({
                         : ""
                     }`}
                   >
-                    {projects.map((project) => (
-                      <button
-                        type="button"
-                        key={project.token}
-                        onClick={() => setSelectedToken(project.token)}
-                        aria-pressed={selectedToken === project.token}
-                        className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${
-                          selectedToken === project.token
-                            ? "border-white/70 bg-white/10 shadow-lg shadow-white/10"
-                            : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
-                        }`}
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-zinc-100">
-                            {project.name}
-                          </p>
-                          <p className="text-xs text-zinc-500">
-                            Created{" "}
-                            {new Date(project.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs font-medium">
-                          {selectedToken === project.token ? (
-                            <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/80">
-                              Selected
-                            </span>
-                          ) : null}
-                          <span className="rounded-full bg-zinc-950 px-3 py-1 text-zinc-300">
-                            <span className="mr-2 text-zinc-500">Token</span>
-                            <span className="font-mono tracking-tight">
-                              {project.token}
-                            </span>
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                    {isProjectsLoading ? (
+                      <div className="py-4 text-center text-sm text-zinc-500">
+                        Loading projects…
+                      </div>
+                    ) : (
+                      projects.map((project) => (
+                        <button
+                          type="button"
+                          key={project.id ?? project.name}
+                          onClick={() =>
+                            project.id != null && handleSelectProject(project.id)
+                          }
+                          aria-pressed={
+                            selectedProjectId === project.id
+                          }
+                          className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                            selectedProjectId === project.id
+                              ? "border-white/70 bg-white/10 shadow-lg shadow-white/10"
+                              : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+                          }`}
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-zinc-100">
+                              {project.name}
+                            </p>
+                            <p className="text-xs text-zinc-500">
+                              Created{" "}
+                              {project.created_at
+                                ? new Date(
+                                    project.created_at
+                                  ).toLocaleString()
+                                : "—"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs font-medium">
+                            {"status" in project && project.status != null ? (
+                              <span className="flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900/80 px-2.5 py-1 text-zinc-300">
+                                {project.status === "pending" ? (
+                                  <span className="text-[10px] font-medium uppercase tracking-wider">
+                                    PENDING ACTION
+                                  </span>
+                                ) : project.status === "running" ? (
+                                  <>
+                                    <span
+                                      className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_4px_rgba(52,211,153,0.5)] animate-pulse"
+                                      aria-hidden
+                                    />
+                                    <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-400">
+                                      running
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] uppercase tracking-[0.15em]">
+                                    {project.status}
+                                  </span>
+                                )}
+                              </span>
+                            ) : null}
+                            {selectedProjectId === project.id ? (
+                              <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/80">
+                                Selected
+                              </span>
+                            ) : null}
+                            {project.id != null ? (
+                              <span className="rounded-full bg-zinc-950 px-3 py-1 text-zinc-300">
+                                <span className="mr-2 text-zinc-500">ID</span>
+                                <span className="font-mono tracking-tight">
+                                  {project.id}
+                                </span>
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                      ))
+                    )}
                   </div>
                 )
               ) : (
@@ -318,14 +505,19 @@ export default function ProjectsClient({
             />
             <SessionList
               selectedProject={selectedProject}
-              sessions={SAMPLE_SESSIONS}
+              sessions={sessionsForProject}
+              sessionsLoading={isSessionsLoading}
               selectedSessionId={selectedSessionId}
               onSelectSession={setSelectedSessionId}
             />
             <TrainSessionPanel session={activeSession} />
-            <ModelPanel session={activeSession} model={SAMPLE_MODEL} />
-            <TrainStepList session={activeSession} steps={SAMPLE_STEPS} />
-            <SessionLogList session={activeSession} logs={SAMPLE_LOGS} />
+            <ModelPanel session={activeSession} model={modelForPanel} />
+            <TrainStepList
+              session={activeSession}
+              steps={apiSteps}
+              stepsLoading={isStepsLoading}
+            />
+            <SessionLogList session={activeSession} logs={logsForPanel} logsLoading={isLogsLoading} />
             <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>

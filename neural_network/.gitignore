@@ -36,3 +36,9 @@ Thumbs.db
 
 # Node (visualization)
 node_modules/
+
+# gzip files
+*.gz
+
+# ubyte
+*-ubyte

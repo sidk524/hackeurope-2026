@@ -10,6 +10,7 @@ from models import (
     DiagnosticIssue,
     DiagnosticRun,
     IssueSeverity,
+    LogKind,
     Model,
     SessionLog,
     TrainSession,
@@ -63,6 +64,15 @@ class TrainSessionUpdate(BaseModel):
     status: SessionStatus | None = None
 
 
+class SessionLogCreate(BaseModel):
+    ts: str
+    level: str
+    msg: str
+    module: str = ""
+    lineno: int = 0
+    kind: Literal["console", "error"] = "console"
+
+
 class SessionActionRequest(BaseModel):
     action: Literal["stop", "resume"]
 
@@ -78,7 +88,11 @@ def create_train_session(project_id: int, train_session: TrainSessionCreate, ses
     
 @router.get("/project/{project_id}", response_model=list[TrainSession])
 def get_train_sessions(project_id: int, session: SessionDep):
-    train_sessions = session.exec(select(TrainSession).where(TrainSession.project_id == project_id)).all()
+    train_sessions = session.exec(
+        select(TrainSession)
+        .where(TrainSession.project_id == project_id)
+        .order_by(TrainSession.id.desc())
+    ).all()
     return train_sessions
 
 
@@ -336,3 +350,37 @@ def get_steps(session_id: int, session: SessionDep):
         raise HTTPException(status_code=404, detail="Session not found")
     steps = session.exec(select(TrainStep).where(TrainStep.session_id == session_id).order_by(TrainStep.step_index.asc())).all()
     return steps
+
+
+@router.post("/{session_id}/log", response_model=SessionLog, status_code=201)
+def create_session_log(session_id: int, body: SessionLogCreate, session: SessionDep):
+    train_session = session.get(TrainSession, session_id)
+    if not train_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    kind = LogKind.console if body.kind == "console" else LogKind.error
+    log_db = SessionLog(
+        session_id=session_id,
+        ts=body.ts,
+        level=body.level,
+        msg=body.msg,
+        module=body.module,
+        lineno=body.lineno,
+        kind=kind,
+    )
+    session.add(log_db)
+    session.commit()
+    session.refresh(log_db)
+    return log_db
+
+
+@router.get("/{session_id}/logs", response_model=list[SessionLog])
+def get_session_logs(session_id: int, session: SessionDep):
+    train_session = session.get(TrainSession, session_id)
+    if not train_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    logs = session.exec(
+        select(SessionLog)
+        .where(SessionLog.session_id == session_id)
+        .order_by(SessionLog.id.asc())
+    ).all()
+    return logs

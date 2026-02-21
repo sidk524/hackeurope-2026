@@ -1,0 +1,1956 @@
+{
+  "session": {
+    "project_id": "2",
+    "run_id": "2_run_20260221_193849",
+    "run_name": "run_20260221_193849",
+    "started_at": "2026-02-21T19:38:49.791440",
+    "ended_at": null,
+    "device": "cpu",
+    "cuda_available": false,
+    "pytorch_version": "2.3.0",
+    "config": {
+      "track_profiler": true,
+      "track_memory": true,
+      "track_throughput": true,
+      "track_loss": true,
+      "track_console_logs": true,
+      "track_error_logs": true,
+      "track_hyperparameters": true,
+      "track_layer_graph": true,
+      "track_system_resources": true,
+      "profile_at_step": 0,
+      "profile_every_n_steps": 100,
+      "profiler_record_shapes": true,
+      "profiler_profile_memory": true,
+      "profiler_with_stack": false,
+      "profiler_top_n_ops": 20,
+      "profiler_group_by_stack_n": 0,
+      "profiler_top_n_stacks": 20,
+      "log_level": 20
+    }
+  },
+  "hyperparameters": {
+    "batch_size": 64,
+    "num_epochs": 5,
+    "learning_rate": 0.001,
+    "optimizer": "Adam",
+    "dataset": "MNIST",
+    "seed": 42,
+    "device": "mps"
+  },
+  "model_architecture": {
+    "total_parameters": 206922,
+    "trainable_parameters": 206922,
+    "frozen_parameters": 0,
+    "num_parameter_layers": 4,
+    "layers": {
+      "conv1": {
+        "type": "Conv2d",
+        "parameters": 160,
+        "pct_of_total": 0.08
+      },
+      "conv2": {
+        "type": "Conv2d",
+        "parameters": 4640,
+        "pct_of_total": 2.24
+      },
+      "fc1": {
+        "type": "Linear",
+        "parameters": 200832,
+        "pct_of_total": 97.06
+      },
+      "fc2": {
+        "type": "Linear",
+        "parameters": 1290,
+        "pct_of_total": 0.62
+      }
+    },
+    "module_tree": {
+      "type": "SmallCNN",
+      "children": {
+        "conv1": {
+          "type": "Conv2d"
+        },
+        "conv2": {
+          "type": "Conv2d"
+        },
+        "pool": {
+          "type": "MaxPool2d"
+        },
+        "fc1": {
+          "type": "Linear"
+        },
+        "fc2": {
+          "type": "Linear"
+        }
+      }
+    },
+    "layer_graph": {
+      "nodes": [
+        {
+          "id": "conv1",
+          "type": "Conv2d",
+          "is_container": false,
+          "in_channels": 1,
+          "out_channels": 16,
+          "kernel_size": [
+            3,
+            3
+          ],
+          "stride": [
+            1,
+            1
+          ],
+          "padding": [
+            1,
+            1
+          ],
+          "has_bias": true,
+          "weight_shape": [
+            16,
+            1,
+            3,
+            3
+          ],
+          "neurons": 16,
+          "category": "convolution",
+          "parameters": {
+            "weight": {
+              "shape": [
+                16,
+                1,
+                3,
+                3
+              ],
+              "numel": 144,
+              "dtype": "torch.float32",
+              "requires_grad": true,
+              "mean": -0.019589,
+              "std": 0.197726,
+              "norm": 2.376111
+            },
+            "bias": {
+              "shape": [
+                16
+              ],
+              "numel": 16,
+              "dtype": "torch.float32",
+              "requires_grad": true,
+              "mean": 0.026841,
+              "std": 0.198933,
+              "norm": 0.777908
+            }
+          },
+          "total_params": 160
+        },
+        {
+          "id": "conv2",
+          "type": "Conv2d",
+          "is_container": false,
+          "in_channels": 16,
+          "out_channels": 32,
+          "kernel_size": [
+            3,
+            3
+          ],
+          "stride": [
+            1,
+            1
+          ],
+          "padding": [
+            1,
+            1
+          ],
+          "has_bias": true,
+          "weight_shape": [
+            32,
+            16,
+            3,
+            3
+          ],
+          "neurons": 32,
+          "category": "convolution",
+          "parameters": {
+            "weight": {
+              "shape": [
+                32,
+                16,
+                3,
+                3
+              ],
+              "numel": 4608,
+              "dtype": "torch.float32",
+              "requires_grad": true,
+              "mean": -0.000614,
+              "std": 0.047746,
+              "norm": 3.241021
+            },
+            "bias": {
+              "shape": [
+                32
+              ],
+              "numel": 32,
+              "dtype": "torch.float32",
+              "requires_grad": true,
+              "mean": -0.004557,
+              "std": 0.050565,
+              "norm": 0.282709
+            }
+          },
+          "total_params": 4640
+        },
+        {
+          "id": "pool",
+          "type": "MaxPool2d",
+          "is_container": false,
+          "category": "custom"
+        },
+        {
+          "id": "fc1",
+          "type": "Linear",
+          "is_container": false,
+          "in_features": 1568,
+          "out_features": 128,
+          "neurons": 128,
+          "has_bias": true,
+          "weight_shape": [
+            128,
+            1568
+          ],
+          "bias_shape": [
+            128
+          ],
+          "category": "linear",
+          "parameters": {
+            "weight": {
+              "shape": [
+                128,
+                1568
+              ],
+              "numel": 200704,
+              "dtype": "torch.float32",
+              "requires_grad": true,
+              "mean": 3.1e-05,
+              "std": 0.01459,
+              "norm": 6.536305
+            },
+            "bias": {
+              "shape": [
+                128
+              ],
+              "numel": 128,
+              "dtype": "torch.float32",
+              "requires_grad": true,
+              "mean": -0.000228,
+              "std": 0.014152,
+              "norm": 0.159501
+            }
+          },
+          "total_params": 200832
+        },
+        {
+          "id": "fc2",
+          "type": "Linear",
+          "is_container": false,
+          "in_features": 128,
+          "out_features": 10,
+          "neurons": 10,
+          "has_bias": true,
+          "weight_shape": [
+            10,
+            128
+          ],
+          "bias_shape": [
+            10
+          ],
+          "category": "linear",
+          "parameters": {
+            "weight": {
+              "shape": [
+                10,
+                128
+              ],
+              "numel": 1280,
+              "dtype": "torch.float32",
+              "requires_grad": true,
+              "mean": -0.000696,
+              "std": 0.05239,
+              "norm": 1.873798
+            },
+            "bias": {
+              "shape": [
+                10
+              ],
+              "numel": 10,
+              "dtype": "torch.float32",
+              "requires_grad": true,
+              "mean": -0.007692,
+              "std": 0.040148,
+              "norm": 0.122877
+            }
+          },
+          "total_params": 1290
+        }
+      ],
+      "edges": [],
+      "sequential_path": [
+        "conv1",
+        "conv2",
+        "pool",
+        "fc1",
+        "fc2"
+      ],
+      "dimension_flow": [
+        {
+          "layer": "conv1",
+          "type": "Conv2d",
+          "in_ch": 1,
+          "out_ch": 16,
+          "kernel": [
+            3,
+            3
+          ]
+        },
+        {
+          "layer": "conv2",
+          "type": "Conv2d",
+          "in_ch": 16,
+          "out_ch": 32,
+          "kernel": [
+            3,
+            3
+          ]
+        },
+        {
+          "layer": "fc1",
+          "type": "Linear",
+          "in": 1568,
+          "out": 128
+        },
+        {
+          "layer": "fc2",
+          "type": "Linear",
+          "in": 128,
+          "out": 10
+        }
+      ],
+      "total_compute_layers": 5,
+      "total_nodes": 5,
+      "total_edges": 0
+    }
+  },
+  "steps": [
+    {
+      "step": 0,
+      "timestamp": "2026-02-21T19:39:02.680305",
+      "duration_seconds": 12.7202,
+      "loss": {
+        "train_mean": 0.169798,
+        "train_min": 0.006126,
+        "train_max": 2.312445,
+        "train_first": 2.312445,
+        "train_last": 0.014823,
+        "train_std": 0.270858,
+        "num_batches": 938,
+        "val": {
+          "val_loss": 0.056416,
+          "val_acc": 0.9809
+        }
+      },
+      "throughput": {
+        "samples_processed": 60000,
+        "tokens_processed": 0,
+        "samples_per_second": 4716.9,
+        "tokens_per_second": 0.0,
+        "batches_per_second": 73.74,
+        "seconds_per_batch": 0.0136
+      },
+      "memory": {
+        "process_rss_mb": 625.64,
+        "process_vms_mb": 403151.75
+      },
+      "system": {
+        "cpu_percent": 39.9,
+        "ram_total_gb": 32.0,
+        "ram_used_gb": 15.02,
+        "ram_percent": 61.5
+      },
+      "profiler": {
+        "total_cpu_time_ms": 13.386,
+        "total_cuda_time_ms": 0.0,
+        "forward_time_ms": 1.741,
+        "backward_time_ms": 7.64,
+        "fwd_bwd_ratio": 0.2279,
+        "num_unique_ops": 63,
+        "top_operations": [
+          {
+            "name": "model_backward",
+            "calls": 1,
+            "cpu_time_us": 1986,
+            "cpu_time_ms": 1.986,
+            "avg_cpu_us": 1986.0
+          },
+          {
+            "name": "model_forward",
+            "calls": 1,
+            "cpu_time_us": 1590,
+            "cpu_time_ms": 1.59,
+            "avg_cpu_us": 1590.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 443,
+            "cpu_time_ms": 0.443,
+            "avg_cpu_us": 55.4
+          },
+          {
+            "name": "torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 433,
+            "cpu_time_ms": 0.433,
+            "avg_cpu_us": 54.1
+          },
+          {
+            "name": "aten::add_",
+            "calls": 8,
+            "cpu_time_us": 416,
+            "cpu_time_ms": 0.416,
+            "avg_cpu_us": 52.0
+          },
+          {
+            "name": "conv2.backward",
+            "calls": 1,
+            "cpu_time_us": 365,
+            "cpu_time_ms": 0.365,
+            "avg_cpu_us": 365.0
+          },
+          {
+            "name": "aten::conv2d",
+            "calls": 2,
+            "cpu_time_us": 362,
+            "cpu_time_ms": 0.362,
+            "avg_cpu_us": 181.0
+          },
+          {
+            "name": "aten::convolution",
+            "calls": 2,
+            "cpu_time_us": 355,
+            "cpu_time_ms": 0.355,
+            "avg_cpu_us": 177.5
+          },
+          {
+            "name": "autograd::engine::evaluate_function: ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 342,
+            "cpu_time_ms": 0.342,
+            "avg_cpu_us": 171.0
+          },
+          {
+            "name": "ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 336,
+            "cpu_time_ms": 0.336,
+            "avg_cpu_us": 168.0
+          },
+          {
+            "name": "aten::_convolution",
+            "calls": 2,
+            "cpu_time_us": 335,
+            "cpu_time_ms": 0.335,
+            "avg_cpu_us": 167.5
+          },
+          {
+            "name": "aten::convolution_backward",
+            "calls": 2,
+            "cpu_time_us": 328,
+            "cpu_time_ms": 0.328,
+            "avg_cpu_us": 164.0
+          },
+          {
+            "name": "aten::_mps_convolution",
+            "calls": 2,
+            "cpu_time_us": 322,
+            "cpu_time_ms": 0.322,
+            "avg_cpu_us": 161.0
+          },
+          {
+            "name": "fc2.backward",
+            "calls": 1,
+            "cpu_time_us": 298,
+            "cpu_time_ms": 0.298,
+            "avg_cpu_us": 298.0
+          },
+          {
+            "name": "conv1",
+            "calls": 1,
+            "cpu_time_us": 296,
+            "cpu_time_ms": 0.296,
+            "avg_cpu_us": 296.0
+          },
+          {
+            "name": "fc1.backward",
+            "calls": 1,
+            "cpu_time_us": 289,
+            "cpu_time_ms": 0.289,
+            "avg_cpu_us": 289.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 288,
+            "cpu_time_ms": 0.288,
+            "avg_cpu_us": 144.0
+          },
+          {
+            "name": "LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 280,
+            "cpu_time_ms": 0.28,
+            "avg_cpu_us": 140.0
+          },
+          {
+            "name": "aten::linear_backward",
+            "calls": 2,
+            "cpu_time_us": 275,
+            "cpu_time_ms": 0.275,
+            "avg_cpu_us": 137.5
+          },
+          {
+            "name": "aten::cross_entropy_loss",
+            "calls": 1,
+            "cpu_time_us": 258,
+            "cpu_time_ms": 0.258,
+            "avg_cpu_us": 258.0
+          }
+        ],
+        "operation_categories": {
+          "forward_pass": {
+            "cpu_time_ms": 1.59,
+            "cuda_time_ms": 0.0,
+            "calls": 1,
+            "pct_cpu": 11.88
+          },
+          "convolution": {
+            "cpu_time_ms": 3.427,
+            "cuda_time_ms": 0.0,
+            "calls": 20,
+            "pct_cpu": 25.6
+          },
+          "other": {
+            "cpu_time_ms": 1.059,
+            "cuda_time_ms": 0.0,
+            "calls": 70,
+            "pct_cpu": 7.91
+          },
+          "backward_pass": {
+            "cpu_time_ms": 4.337,
+            "cuda_time_ms": 0.0,
+            "calls": 51,
+            "pct_cpu": 32.4
+          },
+          "activation_fn": {
+            "cpu_time_ms": 0.518,
+            "cuda_time_ms": 0.0,
+            "calls": 9,
+            "pct_cpu": 3.87
+          },
+          "matrix_ops": {
+            "cpu_time_ms": 1.009,
+            "cuda_time_ms": 0.0,
+            "calls": 8,
+            "pct_cpu": 7.54
+          },
+          "loss": {
+            "cpu_time_ms": 1.075,
+            "cuda_time_ms": 0.0,
+            "calls": 7,
+            "pct_cpu": 8.03
+          },
+          "softmax": {
+            "cpu_time_ms": 0.371,
+            "cuda_time_ms": 0.0,
+            "calls": 5,
+            "pct_cpu": 2.77
+          }
+        },
+        "per_layer": [
+          {
+            "layer": "conv2",
+            "forward_us": 173,
+            "forward_ms": 0.173,
+            "backward_us": 365,
+            "backward_ms": 0.365,
+            "total_us": 538,
+            "total_ms": 0.538,
+            "pct_forward": 24.47,
+            "pct_backward": 38.1,
+            "pct_total": 32.31
+          },
+          {
+            "layer": "fc1",
+            "forward_us": 130,
+            "forward_ms": 0.13,
+            "backward_us": 289,
+            "backward_ms": 0.289,
+            "total_us": 419,
+            "total_ms": 0.419,
+            "pct_forward": 18.39,
+            "pct_backward": 30.17,
+            "pct_total": 25.17
+          },
+          {
+            "layer": "fc2",
+            "forward_us": 108,
+            "forward_ms": 0.108,
+            "backward_us": 298,
+            "backward_ms": 0.298,
+            "total_us": 406,
+            "total_ms": 0.406,
+            "pct_forward": 15.28,
+            "pct_backward": 31.11,
+            "pct_total": 24.38
+          },
+          {
+            "layer": "conv1",
+            "forward_us": 296,
+            "forward_ms": 0.296,
+            "backward_us": 6,
+            "backward_ms": 0.006,
+            "total_us": 302,
+            "total_ms": 0.302,
+            "pct_forward": 41.87,
+            "pct_backward": 0.63,
+            "pct_total": 18.14
+          }
+        ],
+        "num_layers": 4
+      },
+      "log_counts": {
+        "console": 5,
+        "error": 0
+      }
+    },
+    {
+      "step": 1,
+      "timestamp": "2026-02-21T19:39:15.484595",
+      "duration_seconds": 12.7666,
+      "loss": {
+        "train_mean": 0.052465,
+        "train_min": 0.00058,
+        "train_max": 0.297982,
+        "train_first": 0.041188,
+        "train_last": 0.197391,
+        "train_std": 0.046922,
+        "num_batches": 938,
+        "val": {
+          "val_loss": 0.036283,
+          "val_acc": 0.9877
+        }
+      },
+      "throughput": {
+        "samples_processed": 60000,
+        "tokens_processed": 0,
+        "samples_per_second": 4699.78,
+        "tokens_per_second": 0.0,
+        "batches_per_second": 73.47,
+        "seconds_per_batch": 0.0136
+      },
+      "memory": {
+        "process_rss_mb": 630.44,
+        "process_vms_mb": 403152.75
+      },
+      "system": {
+        "cpu_percent": 44.4,
+        "ram_total_gb": 32.0,
+        "ram_used_gb": 15.23,
+        "ram_percent": 62.1
+      },
+      "profiler": {
+        "total_cpu_time_ms": 13.924,
+        "total_cuda_time_ms": 0.0,
+        "forward_time_ms": 1.885,
+        "backward_time_ms": 7.853,
+        "fwd_bwd_ratio": 0.24,
+        "num_unique_ops": 63,
+        "top_operations": [
+          {
+            "name": "model_backward",
+            "calls": 1,
+            "cpu_time_us": 2035,
+            "cpu_time_ms": 2.035,
+            "avg_cpu_us": 2035.0
+          },
+          {
+            "name": "model_forward",
+            "calls": 1,
+            "cpu_time_us": 1736,
+            "cpu_time_ms": 1.736,
+            "avg_cpu_us": 1736.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 444,
+            "cpu_time_ms": 0.444,
+            "avg_cpu_us": 55.5
+          },
+          {
+            "name": "torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 431,
+            "cpu_time_ms": 0.431,
+            "avg_cpu_us": 53.9
+          },
+          {
+            "name": "aten::add_",
+            "calls": 8,
+            "cpu_time_us": 418,
+            "cpu_time_ms": 0.418,
+            "avg_cpu_us": 52.2
+          },
+          {
+            "name": "autograd::engine::evaluate_function: ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 373,
+            "cpu_time_ms": 0.373,
+            "avg_cpu_us": 186.5
+          },
+          {
+            "name": "conv2.backward",
+            "calls": 1,
+            "cpu_time_us": 364,
+            "cpu_time_ms": 0.364,
+            "avg_cpu_us": 364.0
+          },
+          {
+            "name": "ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 364,
+            "cpu_time_ms": 0.364,
+            "avg_cpu_us": 182.0
+          },
+          {
+            "name": "aten::convolution_backward",
+            "calls": 2,
+            "cpu_time_us": 356,
+            "cpu_time_ms": 0.356,
+            "avg_cpu_us": 178.0
+          },
+          {
+            "name": "aten::conv2d",
+            "calls": 2,
+            "cpu_time_us": 342,
+            "cpu_time_ms": 0.342,
+            "avg_cpu_us": 171.0
+          },
+          {
+            "name": "conv1",
+            "calls": 1,
+            "cpu_time_us": 337,
+            "cpu_time_ms": 0.337,
+            "avg_cpu_us": 337.0
+          },
+          {
+            "name": "aten::convolution",
+            "calls": 2,
+            "cpu_time_us": 334,
+            "cpu_time_ms": 0.334,
+            "avg_cpu_us": 167.0
+          },
+          {
+            "name": "fc1.backward",
+            "calls": 1,
+            "cpu_time_us": 322,
+            "cpu_time_ms": 0.322,
+            "avg_cpu_us": 322.0
+          },
+          {
+            "name": "aten::_convolution",
+            "calls": 2,
+            "cpu_time_us": 315,
+            "cpu_time_ms": 0.315,
+            "avg_cpu_us": 157.5
+          },
+          {
+            "name": "aten::_mps_convolution",
+            "calls": 2,
+            "cpu_time_us": 303,
+            "cpu_time_ms": 0.303,
+            "avg_cpu_us": 151.5
+          },
+          {
+            "name": "autograd::engine::evaluate_function: LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 289,
+            "cpu_time_ms": 0.289,
+            "avg_cpu_us": 144.5
+          },
+          {
+            "name": "LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 281,
+            "cpu_time_ms": 0.281,
+            "avg_cpu_us": 140.5
+          },
+          {
+            "name": "aten::linear_backward",
+            "calls": 2,
+            "cpu_time_us": 276,
+            "cpu_time_ms": 0.276,
+            "avg_cpu_us": 138.0
+          },
+          {
+            "name": "fc2.backward",
+            "calls": 1,
+            "cpu_time_us": 269,
+            "cpu_time_ms": 0.269,
+            "avg_cpu_us": 269.0
+          },
+          {
+            "name": "aten::cross_entropy_loss",
+            "calls": 1,
+            "cpu_time_us": 258,
+            "cpu_time_ms": 0.258,
+            "avg_cpu_us": 258.0
+          }
+        ],
+        "operation_categories": {
+          "forward_pass": {
+            "cpu_time_ms": 1.736,
+            "cuda_time_ms": 0.0,
+            "calls": 1,
+            "pct_cpu": 12.47
+          },
+          "convolution": {
+            "cpu_time_ms": 3.466,
+            "cuda_time_ms": 0.0,
+            "calls": 20,
+            "pct_cpu": 24.89
+          },
+          "other": {
+            "cpu_time_ms": 1.192,
+            "cuda_time_ms": 0.0,
+            "calls": 70,
+            "pct_cpu": 8.56
+          },
+          "backward_pass": {
+            "cpu_time_ms": 4.466,
+            "cuda_time_ms": 0.0,
+            "calls": 51,
+            "pct_cpu": 32.07
+          },
+          "activation_fn": {
+            "cpu_time_ms": 0.626,
+            "cuda_time_ms": 0.0,
+            "calls": 9,
+            "pct_cpu": 4.5
+          },
+          "matrix_ops": {
+            "cpu_time_ms": 1.09,
+            "cuda_time_ms": 0.0,
+            "calls": 8,
+            "pct_cpu": 7.83
+          },
+          "loss": {
+            "cpu_time_ms": 0.994,
+            "cuda_time_ms": 0.0,
+            "calls": 7,
+            "pct_cpu": 7.14
+          },
+          "softmax": {
+            "cpu_time_ms": 0.354,
+            "cuda_time_ms": 0.0,
+            "calls": 5,
+            "pct_cpu": 2.54
+          }
+        },
+        "per_layer": [
+          {
+            "layer": "fc1",
+            "forward_us": 213,
+            "forward_ms": 0.213,
+            "backward_us": 322,
+            "backward_ms": 0.322,
+            "total_us": 535,
+            "total_ms": 0.535,
+            "pct_forward": 25.79,
+            "pct_backward": 33.51,
+            "pct_total": 29.94
+          },
+          {
+            "layer": "conv2",
+            "forward_us": 145,
+            "forward_ms": 0.145,
+            "backward_us": 364,
+            "backward_ms": 0.364,
+            "total_us": 509,
+            "total_ms": 0.509,
+            "pct_forward": 17.55,
+            "pct_backward": 37.88,
+            "pct_total": 28.48
+          },
+          {
+            "layer": "fc2",
+            "forward_us": 131,
+            "forward_ms": 0.131,
+            "backward_us": 269,
+            "backward_ms": 0.269,
+            "total_us": 400,
+            "total_ms": 0.4,
+            "pct_forward": 15.86,
+            "pct_backward": 27.99,
+            "pct_total": 22.38
+          },
+          {
+            "layer": "conv1",
+            "forward_us": 337,
+            "forward_ms": 0.337,
+            "backward_us": 6,
+            "backward_ms": 0.006,
+            "total_us": 343,
+            "total_ms": 0.343,
+            "pct_forward": 40.8,
+            "pct_backward": 0.62,
+            "pct_total": 19.19
+          }
+        ],
+        "num_layers": 4
+      },
+      "log_counts": {
+        "console": 7,
+        "error": 1
+      }
+    },
+    {
+      "step": 2,
+      "timestamp": "2026-02-21T19:39:28.398237",
+      "duration_seconds": 12.8839,
+      "loss": {
+        "train_mean": 0.037482,
+        "train_min": 0.00052,
+        "train_max": 0.414358,
+        "train_first": 0.04606,
+        "train_last": 0.032589,
+        "train_std": 0.039678,
+        "num_batches": 938,
+        "val": {
+          "val_loss": 0.034404,
+          "val_acc": 0.9882
+        }
+      },
+      "throughput": {
+        "samples_processed": 60000,
+        "tokens_processed": 0,
+        "samples_per_second": 4656.98,
+        "tokens_per_second": 0.0,
+        "batches_per_second": 72.8,
+        "seconds_per_batch": 0.0137
+      },
+      "memory": {
+        "process_rss_mb": 634.17,
+        "process_vms_mb": 403156.75
+      },
+      "system": {
+        "cpu_percent": 45.4,
+        "ram_total_gb": 32.0,
+        "ram_used_gb": 15.26,
+        "ram_percent": 62.3
+      },
+      "profiler": {
+        "total_cpu_time_ms": 14.021,
+        "total_cuda_time_ms": 0.0,
+        "forward_time_ms": 1.615,
+        "backward_time_ms": 8.569,
+        "fwd_bwd_ratio": 0.1885,
+        "num_unique_ops": 63,
+        "top_operations": [
+          {
+            "name": "model_backward",
+            "calls": 1,
+            "cpu_time_us": 2247,
+            "cpu_time_ms": 2.247,
+            "avg_cpu_us": 2247.0
+          },
+          {
+            "name": "model_forward",
+            "calls": 1,
+            "cpu_time_us": 1455,
+            "cpu_time_ms": 1.455,
+            "avg_cpu_us": 1455.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 480,
+            "cpu_time_ms": 0.48,
+            "avg_cpu_us": 60.0
+          },
+          {
+            "name": "torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 471,
+            "cpu_time_ms": 0.471,
+            "avg_cpu_us": 58.9
+          },
+          {
+            "name": "aten::add_",
+            "calls": 8,
+            "cpu_time_us": 451,
+            "cpu_time_ms": 0.451,
+            "avg_cpu_us": 56.4
+          },
+          {
+            "name": "conv2.backward",
+            "calls": 1,
+            "cpu_time_us": 412,
+            "cpu_time_ms": 0.412,
+            "avg_cpu_us": 412.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 410,
+            "cpu_time_ms": 0.41,
+            "avg_cpu_us": 205.0
+          },
+          {
+            "name": "ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 394,
+            "cpu_time_ms": 0.394,
+            "avg_cpu_us": 197.0
+          },
+          {
+            "name": "aten::convolution_backward",
+            "calls": 2,
+            "cpu_time_us": 385,
+            "cpu_time_ms": 0.385,
+            "avg_cpu_us": 192.5
+          },
+          {
+            "name": "aten::conv2d",
+            "calls": 2,
+            "cpu_time_us": 319,
+            "cpu_time_ms": 0.319,
+            "avg_cpu_us": 159.5
+          },
+          {
+            "name": "aten::convolution",
+            "calls": 2,
+            "cpu_time_us": 314,
+            "cpu_time_ms": 0.314,
+            "avg_cpu_us": 157.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 312,
+            "cpu_time_ms": 0.312,
+            "avg_cpu_us": 156.0
+          },
+          {
+            "name": "fc1.backward",
+            "calls": 1,
+            "cpu_time_us": 309,
+            "cpu_time_ms": 0.309,
+            "avg_cpu_us": 309.0
+          },
+          {
+            "name": "fc2.backward",
+            "calls": 1,
+            "cpu_time_us": 305,
+            "cpu_time_ms": 0.305,
+            "avg_cpu_us": 305.0
+          },
+          {
+            "name": "LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 303,
+            "cpu_time_ms": 0.303,
+            "avg_cpu_us": 151.5
+          },
+          {
+            "name": "aten::linear_backward",
+            "calls": 2,
+            "cpu_time_us": 298,
+            "cpu_time_ms": 0.298,
+            "avg_cpu_us": 149.0
+          },
+          {
+            "name": "aten::_convolution",
+            "calls": 2,
+            "cpu_time_us": 296,
+            "cpu_time_ms": 0.296,
+            "avg_cpu_us": 148.0
+          },
+          {
+            "name": "aten::_mps_convolution",
+            "calls": 2,
+            "cpu_time_us": 286,
+            "cpu_time_ms": 0.286,
+            "avg_cpu_us": 143.0
+          },
+          {
+            "name": "conv1",
+            "calls": 1,
+            "cpu_time_us": 269,
+            "cpu_time_ms": 0.269,
+            "avg_cpu_us": 269.0
+          },
+          {
+            "name": "aten::cross_entropy_loss",
+            "calls": 1,
+            "cpu_time_us": 264,
+            "cpu_time_ms": 0.264,
+            "avg_cpu_us": 264.0
+          }
+        ],
+        "operation_categories": {
+          "forward_pass": {
+            "cpu_time_ms": 1.455,
+            "cuda_time_ms": 0.0,
+            "calls": 1,
+            "pct_cpu": 10.38
+          },
+          "convolution": {
+            "cpu_time_ms": 3.469,
+            "cuda_time_ms": 0.0,
+            "calls": 20,
+            "pct_cpu": 24.74
+          },
+          "other": {
+            "cpu_time_ms": 1.108,
+            "cuda_time_ms": 0.0,
+            "calls": 70,
+            "pct_cpu": 7.9
+          },
+          "backward_pass": {
+            "cpu_time_ms": 4.781,
+            "cuda_time_ms": 0.0,
+            "calls": 51,
+            "pct_cpu": 34.1
+          },
+          "activation_fn": {
+            "cpu_time_ms": 0.595,
+            "cuda_time_ms": 0.0,
+            "calls": 9,
+            "pct_cpu": 4.24
+          },
+          "matrix_ops": {
+            "cpu_time_ms": 1.07,
+            "cuda_time_ms": 0.0,
+            "calls": 8,
+            "pct_cpu": 7.63
+          },
+          "loss": {
+            "cpu_time_ms": 1.151,
+            "cuda_time_ms": 0.0,
+            "calls": 7,
+            "pct_cpu": 8.21
+          },
+          "softmax": {
+            "cpu_time_ms": 0.392,
+            "cuda_time_ms": 0.0,
+            "calls": 5,
+            "pct_cpu": 2.8
+          }
+        },
+        "per_layer": [
+          {
+            "layer": "conv2",
+            "forward_us": 133,
+            "forward_ms": 0.133,
+            "backward_us": 412,
+            "backward_ms": 0.412,
+            "total_us": 545,
+            "total_ms": 0.545,
+            "pct_forward": 21.35,
+            "pct_backward": 39.73,
+            "pct_total": 32.83
+          },
+          {
+            "layer": "fc1",
+            "forward_us": 117,
+            "forward_ms": 0.117,
+            "backward_us": 309,
+            "backward_ms": 0.309,
+            "total_us": 426,
+            "total_ms": 0.426,
+            "pct_forward": 18.78,
+            "pct_backward": 29.8,
+            "pct_total": 25.66
+          },
+          {
+            "layer": "fc2",
+            "forward_us": 104,
+            "forward_ms": 0.104,
+            "backward_us": 305,
+            "backward_ms": 0.305,
+            "total_us": 409,
+            "total_ms": 0.409,
+            "pct_forward": 16.69,
+            "pct_backward": 29.41,
+            "pct_total": 24.64
+          },
+          {
+            "layer": "conv1",
+            "forward_us": 269,
+            "forward_ms": 0.269,
+            "backward_us": 11,
+            "backward_ms": 0.011,
+            "total_us": 280,
+            "total_ms": 0.28,
+            "pct_forward": 43.18,
+            "pct_backward": 1.06,
+            "pct_total": 16.87
+          }
+        ],
+        "num_layers": 4
+      },
+      "log_counts": {
+        "console": 9,
+        "error": 2
+      }
+    },
+    {
+      "step": 3,
+      "timestamp": "2026-02-21T19:39:41.119239",
+      "duration_seconds": 12.7042,
+      "loss": {
+        "train_mean": 0.02723,
+        "train_min": 0.000263,
+        "train_max": 0.326064,
+        "train_first": 0.001867,
+        "train_last": 0.021099,
+        "train_std": 0.033296,
+        "num_batches": 938,
+        "val": {
+          "val_loss": 0.035801,
+          "val_acc": 0.9884
+        }
+      },
+      "throughput": {
+        "samples_processed": 60000,
+        "tokens_processed": 0,
+        "samples_per_second": 4722.85,
+        "tokens_per_second": 0.0,
+        "batches_per_second": 73.83,
+        "seconds_per_batch": 0.0135
+      },
+      "memory": {
+        "process_rss_mb": 637.3,
+        "process_vms_mb": 403158.75
+      },
+      "system": {
+        "cpu_percent": 44.0,
+        "ram_total_gb": 32.0,
+        "ram_used_gb": 15.1,
+        "ram_percent": 61.8
+      },
+      "profiler": {
+        "total_cpu_time_ms": 15.224,
+        "total_cuda_time_ms": 0.0,
+        "forward_time_ms": 1.921,
+        "backward_time_ms": 9.145,
+        "fwd_bwd_ratio": 0.2101,
+        "num_unique_ops": 63,
+        "top_operations": [
+          {
+            "name": "model_backward",
+            "calls": 1,
+            "cpu_time_us": 2353,
+            "cpu_time_ms": 2.353,
+            "avg_cpu_us": 2353.0
+          },
+          {
+            "name": "model_forward",
+            "calls": 1,
+            "cpu_time_us": 1765,
+            "cpu_time_ms": 1.765,
+            "avg_cpu_us": 1765.0
+          },
+          {
+            "name": "conv2.backward",
+            "calls": 1,
+            "cpu_time_us": 541,
+            "cpu_time_ms": 0.541,
+            "avg_cpu_us": 541.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 492,
+            "cpu_time_ms": 0.492,
+            "avg_cpu_us": 246.0
+          },
+          {
+            "name": "ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 480,
+            "cpu_time_ms": 0.48,
+            "avg_cpu_us": 240.0
+          },
+          {
+            "name": "aten::convolution_backward",
+            "calls": 2,
+            "cpu_time_us": 471,
+            "cpu_time_ms": 0.471,
+            "avg_cpu_us": 235.5
+          },
+          {
+            "name": "autograd::engine::evaluate_function: torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 463,
+            "cpu_time_ms": 0.463,
+            "avg_cpu_us": 57.9
+          },
+          {
+            "name": "conv1",
+            "calls": 1,
+            "cpu_time_us": 461,
+            "cpu_time_ms": 0.461,
+            "avg_cpu_us": 461.0
+          },
+          {
+            "name": "torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 450,
+            "cpu_time_ms": 0.45,
+            "avg_cpu_us": 56.2
+          },
+          {
+            "name": "aten::add_",
+            "calls": 8,
+            "cpu_time_us": 431,
+            "cpu_time_ms": 0.431,
+            "avg_cpu_us": 53.9
+          },
+          {
+            "name": "aten::conv2d",
+            "calls": 2,
+            "cpu_time_us": 342,
+            "cpu_time_ms": 0.342,
+            "avg_cpu_us": 171.0
+          },
+          {
+            "name": "aten::convolution",
+            "calls": 2,
+            "cpu_time_us": 337,
+            "cpu_time_ms": 0.337,
+            "avg_cpu_us": 168.5
+          },
+          {
+            "name": "aten::mps_convolution_backward",
+            "calls": 2,
+            "cpu_time_us": 321,
+            "cpu_time_ms": 0.321,
+            "avg_cpu_us": 160.5
+          },
+          {
+            "name": "fc2.backward",
+            "calls": 1,
+            "cpu_time_us": 320,
+            "cpu_time_ms": 0.32,
+            "avg_cpu_us": 320.0
+          },
+          {
+            "name": "aten::_convolution",
+            "calls": 2,
+            "cpu_time_us": 316,
+            "cpu_time_ms": 0.316,
+            "avg_cpu_us": 158.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 305,
+            "cpu_time_ms": 0.305,
+            "avg_cpu_us": 152.5
+          },
+          {
+            "name": "aten::_mps_convolution",
+            "calls": 2,
+            "cpu_time_us": 304,
+            "cpu_time_ms": 0.304,
+            "avg_cpu_us": 152.0
+          },
+          {
+            "name": "fc1.backward",
+            "calls": 1,
+            "cpu_time_us": 297,
+            "cpu_time_ms": 0.297,
+            "avg_cpu_us": 297.0
+          },
+          {
+            "name": "LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 296,
+            "cpu_time_ms": 0.296,
+            "avg_cpu_us": 148.0
+          },
+          {
+            "name": "aten::linear_backward",
+            "calls": 2,
+            "cpu_time_us": 291,
+            "cpu_time_ms": 0.291,
+            "avg_cpu_us": 145.5
+          }
+        ],
+        "operation_categories": {
+          "forward_pass": {
+            "cpu_time_ms": 1.765,
+            "cuda_time_ms": 0.0,
+            "calls": 1,
+            "pct_cpu": 11.59
+          },
+          "convolution": {
+            "cpu_time_ms": 4.212,
+            "cuda_time_ms": 0.0,
+            "calls": 20,
+            "pct_cpu": 27.67
+          },
+          "other": {
+            "cpu_time_ms": 1.12,
+            "cuda_time_ms": 0.0,
+            "calls": 70,
+            "pct_cpu": 7.36
+          },
+          "backward_pass": {
+            "cpu_time_ms": 4.905,
+            "cuda_time_ms": 0.0,
+            "calls": 51,
+            "pct_cpu": 32.22
+          },
+          "activation_fn": {
+            "cpu_time_ms": 0.632,
+            "cuda_time_ms": 0.0,
+            "calls": 9,
+            "pct_cpu": 4.15
+          },
+          "matrix_ops": {
+            "cpu_time_ms": 1.052,
+            "cuda_time_ms": 0.0,
+            "calls": 8,
+            "pct_cpu": 6.91
+          },
+          "loss": {
+            "cpu_time_ms": 1.144,
+            "cuda_time_ms": 0.0,
+            "calls": 7,
+            "pct_cpu": 7.51
+          },
+          "softmax": {
+            "cpu_time_ms": 0.394,
+            "cuda_time_ms": 0.0,
+            "calls": 5,
+            "pct_cpu": 2.59
+          }
+        },
+        "per_layer": [
+          {
+            "layer": "conv2",
+            "forward_us": 135,
+            "forward_ms": 0.135,
+            "backward_us": 541,
+            "backward_ms": 0.541,
+            "total_us": 676,
+            "total_ms": 0.676,
+            "pct_forward": 16.17,
+            "pct_backward": 46.24,
+            "pct_total": 33.72
+          },
+          {
+            "layer": "conv1",
+            "forward_us": 461,
+            "forward_ms": 0.461,
+            "backward_us": 12,
+            "backward_ms": 0.012,
+            "total_us": 473,
+            "total_ms": 0.473,
+            "pct_forward": 55.21,
+            "pct_backward": 1.03,
+            "pct_total": 23.59
+          },
+          {
+            "layer": "fc1",
+            "forward_us": 135,
+            "forward_ms": 0.135,
+            "backward_us": 297,
+            "backward_ms": 0.297,
+            "total_us": 432,
+            "total_ms": 0.432,
+            "pct_forward": 16.17,
+            "pct_backward": 25.38,
+            "pct_total": 21.55
+          },
+          {
+            "layer": "fc2",
+            "forward_us": 104,
+            "forward_ms": 0.104,
+            "backward_us": 320,
+            "backward_ms": 0.32,
+            "total_us": 424,
+            "total_ms": 0.424,
+            "pct_forward": 12.46,
+            "pct_backward": 27.35,
+            "pct_total": 21.15
+          }
+        ],
+        "num_layers": 4
+      },
+      "log_counts": {
+        "console": 11,
+        "error": 3
+      }
+    },
+    {
+      "step": 4,
+      "timestamp": "2026-02-21T19:39:54.318947",
+      "duration_seconds": 13.1829,
+      "loss": {
+        "train_mean": 0.02141,
+        "train_min": 0.000101,
+        "train_max": 0.307354,
+        "train_first": 0.016467,
+        "train_last": 0.124824,
+        "train_std": 0.03007,
+        "num_batches": 938,
+        "val": {
+          "val_loss": 0.031402,
+          "val_acc": 0.9893
+        }
+      },
+      "throughput": {
+        "samples_processed": 60000,
+        "tokens_processed": 0,
+        "samples_per_second": 4551.34,
+        "tokens_per_second": 0.0,
+        "batches_per_second": 71.15,
+        "seconds_per_batch": 0.0141
+      },
+      "memory": {
+        "process_rss_mb": 641.11,
+        "process_vms_mb": 403160.75
+      },
+      "system": {
+        "cpu_percent": 44.6,
+        "ram_total_gb": 32.0,
+        "ram_used_gb": 14.48,
+        "ram_percent": 59.9
+      },
+      "profiler": {
+        "total_cpu_time_ms": 14.737,
+        "total_cuda_time_ms": 0.0,
+        "forward_time_ms": 1.705,
+        "backward_time_ms": 9.198,
+        "fwd_bwd_ratio": 0.1854,
+        "num_unique_ops": 63,
+        "top_operations": [
+          {
+            "name": "model_backward",
+            "calls": 1,
+            "cpu_time_us": 2347,
+            "cpu_time_ms": 2.347,
+            "avg_cpu_us": 2347.0
+          },
+          {
+            "name": "model_forward",
+            "calls": 1,
+            "cpu_time_us": 1560,
+            "cpu_time_ms": 1.56,
+            "avg_cpu_us": 1560.0
+          },
+          {
+            "name": "fc1.backward",
+            "calls": 1,
+            "cpu_time_us": 589,
+            "cpu_time_ms": 0.589,
+            "avg_cpu_us": 589.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 552,
+            "cpu_time_ms": 0.552,
+            "avg_cpu_us": 276.0
+          },
+          {
+            "name": "LinearBackward0",
+            "calls": 2,
+            "cpu_time_us": 542,
+            "cpu_time_ms": 0.542,
+            "avg_cpu_us": 271.0
+          },
+          {
+            "name": "aten::linear_backward",
+            "calls": 2,
+            "cpu_time_us": 537,
+            "cpu_time_ms": 0.537,
+            "avg_cpu_us": 268.5
+          },
+          {
+            "name": "autograd::engine::evaluate_function: torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 451,
+            "cpu_time_ms": 0.451,
+            "avg_cpu_us": 56.4
+          },
+          {
+            "name": "torch::autograd::AccumulateGrad",
+            "calls": 8,
+            "cpu_time_us": 441,
+            "cpu_time_ms": 0.441,
+            "avg_cpu_us": 55.1
+          },
+          {
+            "name": "aten::add_",
+            "calls": 8,
+            "cpu_time_us": 423,
+            "cpu_time_ms": 0.423,
+            "avg_cpu_us": 52.9
+          },
+          {
+            "name": "conv2.backward",
+            "calls": 1,
+            "cpu_time_us": 380,
+            "cpu_time_ms": 0.38,
+            "avg_cpu_us": 380.0
+          },
+          {
+            "name": "autograd::engine::evaluate_function: ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 362,
+            "cpu_time_ms": 0.362,
+            "avg_cpu_us": 181.0
+          },
+          {
+            "name": "ConvolutionBackward0",
+            "calls": 2,
+            "cpu_time_us": 355,
+            "cpu_time_ms": 0.355,
+            "avg_cpu_us": 177.5
+          },
+          {
+            "name": "aten::convolution_backward",
+            "calls": 2,
+            "cpu_time_us": 347,
+            "cpu_time_ms": 0.347,
+            "avg_cpu_us": 173.5
+          },
+          {
+            "name": "aten::conv2d",
+            "calls": 2,
+            "cpu_time_us": 343,
+            "cpu_time_ms": 0.343,
+            "avg_cpu_us": 171.5
+          },
+          {
+            "name": "aten::convolution",
+            "calls": 2,
+            "cpu_time_us": 336,
+            "cpu_time_ms": 0.336,
+            "avg_cpu_us": 168.0
+          },
+          {
+            "name": "aten::_convolution",
+            "calls": 2,
+            "cpu_time_us": 316,
+            "cpu_time_ms": 0.316,
+            "avg_cpu_us": 158.0
+          },
+          {
+            "name": "aten::_mps_convolution",
+            "calls": 2,
+            "cpu_time_us": 303,
+            "cpu_time_ms": 0.303,
+            "avg_cpu_us": 151.5
+          },
+          {
+            "name": "conv1",
+            "calls": 1,
+            "cpu_time_us": 290,
+            "cpu_time_ms": 0.29,
+            "avg_cpu_us": 290.0
+          },
+          {
+            "name": "fc2.backward",
+            "calls": 1,
+            "cpu_time_us": 278,
+            "cpu_time_ms": 0.278,
+            "avg_cpu_us": 278.0
+          },
+          {
+            "name": "aten::cross_entropy_loss",
+            "calls": 1,
+            "cpu_time_us": 244,
+            "cpu_time_ms": 0.244,
+            "avg_cpu_us": 244.0
+          }
+        ],
+        "operation_categories": {
+          "forward_pass": {
+            "cpu_time_ms": 1.56,
+            "cuda_time_ms": 0.0,
+            "calls": 1,
+            "pct_cpu": 10.59
+          },
+          "convolution": {
+            "cpu_time_ms": 3.414,
+            "cuda_time_ms": 0.0,
+            "calls": 20,
+            "pct_cpu": 23.17
+          },
+          "other": {
+            "cpu_time_ms": 1.035,
+            "cuda_time_ms": 0.0,
+            "calls": 70,
+            "pct_cpu": 7.02
+          },
+          "backward_pass": {
+            "cpu_time_ms": 5.075,
+            "cuda_time_ms": 0.0,
+            "calls": 51,
+            "pct_cpu": 34.44
+          },
+          "activation_fn": {
+            "cpu_time_ms": 0.561,
+            "cuda_time_ms": 0.0,
+            "calls": 9,
+            "pct_cpu": 3.81
+          },
+          "matrix_ops": {
+            "cpu_time_ms": 1.781,
+            "cuda_time_ms": 0.0,
+            "calls": 8,
+            "pct_cpu": 12.09
+          },
+          "loss": {
+            "cpu_time_ms": 0.975,
+            "cuda_time_ms": 0.0,
+            "calls": 7,
+            "pct_cpu": 6.62
+          },
+          "softmax": {
+            "cpu_time_ms": 0.336,
+            "cuda_time_ms": 0.0,
+            "calls": 5,
+            "pct_cpu": 2.28
+          }
+        },
+        "per_layer": [
+          {
+            "layer": "fc1",
+            "forward_us": 109,
+            "forward_ms": 0.109,
+            "backward_us": 589,
+            "backward_ms": 0.589,
+            "total_us": 698,
+            "total_ms": 0.698,
+            "pct_forward": 16.49,
+            "pct_backward": 47.01,
+            "pct_total": 36.47
+          },
+          {
+            "layer": "conv2",
+            "forward_us": 159,
+            "forward_ms": 0.159,
+            "backward_us": 380,
+            "backward_ms": 0.38,
+            "total_us": 539,
+            "total_ms": 0.539,
+            "pct_forward": 24.05,
+            "pct_backward": 30.33,
+            "pct_total": 28.16
+          },
+          {
+            "layer": "fc2",
+            "forward_us": 103,
+            "forward_ms": 0.103,
+            "backward_us": 278,
+            "backward_ms": 0.278,
+            "total_us": 381,
+            "total_ms": 0.381,
+            "pct_forward": 15.58,
+            "pct_backward": 22.19,
+            "pct_total": 19.91
+          },
+          {
+            "layer": "conv1",
+            "forward_us": 290,
+            "forward_ms": 0.29,
+            "backward_us": 6,
+            "backward_ms": 0.006,
+            "total_us": 296,
+            "total_ms": 0.296,
+            "pct_forward": 43.87,
+            "pct_backward": 0.48,
+            "pct_total": 15.46
+          }
+        ],
+        "num_layers": 4
+      },
+      "log_counts": {
+        "console": 13,
+        "error": 3
+      }
+    }
+  ],
+  "console_logs": [
+    {
+      "ts": "2026-02-21T19:38:49.792521",
+      "level": "INFO",
+      "msg": "Initialized | project=2 | run=run_20260221_193849 | device=cpu",
+      "module": "observer",
+      "lineno": 197
+    },
+    {
+      "ts": "2026-02-21T19:38:49.808259",
+      "level": "INFO",
+      "msg": "Backend session created | session_id=2",
+      "module": "observer",
+      "lineno": 233
+    },
+    {
+      "ts": "2026-02-21T19:38:49.808627",
+      "level": "INFO",
+      "msg": "Hyperparameters logged: ['batch_size', 'num_epochs', 'learning_rate', 'optimizer', 'dataset', 'seed', 'device']",
+      "module": "observer",
+      "lineno": 211
+    },
+    {
+      "ts": "2026-02-21T19:38:49.886843",
+      "level": "INFO",
+      "msg": "Model registered | 206,922 params (0.21M) | 4 param layers",
+      "module": "observer",
+      "lineno": 324
+    },
+    {
+      "ts": "2026-02-21T19:38:49.900241",
+      "level": "INFO",
+      "msg": "Model registered in backend | model_id=1",
+      "module": "observer",
+      "lineno": 251
+    },
+    {
+      "ts": "2026-02-21T19:39:02.717942",
+      "level": "WARNING",
+      "msg": "Failed to register step in backend: HTTP Error 500: Internal Server Error",
+      "module": "observer",
+      "lineno": 278
+    },
+    {
+      "ts": "2026-02-21T19:39:02.718342",
+      "level": "INFO",
+      "msg": "--- Step 0 done | 12.72s | loss=0.169798 ---",
+      "module": "observer",
+      "lineno": 703
+    },
+    {
+      "ts": "2026-02-21T19:39:15.514245",
+      "level": "WARNING",
+      "msg": "Failed to register step in backend: HTTP Error 500: Internal Server Error",
+      "module": "observer",
+      "lineno": 278
+    },
+    {
+      "ts": "2026-02-21T19:39:15.514787",
+      "level": "INFO",
+      "msg": "--- Step 1 done | 12.77s | loss=0.052465 ---",
+      "module": "observer",
+      "lineno": 703
+    },
+    {
+      "ts": "2026-02-21T19:39:28.414957",
+      "level": "WARNING",
+      "msg": "Failed to register step in backend: HTTP Error 500: Internal Server Error",
+      "module": "observer",
+      "lineno": 278
+    },
+    {
+      "ts": "2026-02-21T19:39:28.415305",
+      "level": "INFO",
+      "msg": "--- Step 2 done | 12.88s | loss=0.037482 ---",
+      "module": "observer",
+      "lineno": 703
+    },
+    {
+      "ts": "2026-02-21T19:39:41.135990",
+      "level": "INFO",
+      "msg": "Step 3 registered in backend | step_id=1",
+      "module": "observer",
+      "lineno": 276
+    },
+    {
+      "ts": "2026-02-21T19:39:41.136287",
+      "level": "INFO",
+      "msg": "--- Step 3 done | 12.70s | loss=0.02723 ---",
+      "module": "observer",
+      "lineno": 703
+    },
+    {
+      "ts": "2026-02-21T19:39:54.328253",
+      "level": "WARNING",
+      "msg": "Failed to register step in backend: HTTP Error 400: Bad Request",
+      "module": "observer",
+      "lineno": 278
+    },
+    {
+      "ts": "2026-02-21T19:39:54.328857",
+      "level": "INFO",
+      "msg": "--- Step 4 done | 13.18s | loss=0.02141 ---",
+      "module": "observer",
+      "lineno": 703
+    }
+  ],
+  "error_logs": [
+    {
+      "ts": "2026-02-21T19:39:02.717945",
+      "level": "WARNING",
+      "msg": "WARNING: Failed to register step in backend: HTTP Error 500: Internal Server Error",
+      "module": "observer",
+      "lineno": 278
+    },
+    {
+      "ts": "2026-02-21T19:39:15.514249",
+      "level": "WARNING",
+      "msg": "WARNING: Failed to register step in backend: HTTP Error 500: Internal Server Error",
+      "module": "observer",
+      "lineno": 278
+    },
+    {
+      "ts": "2026-02-21T19:39:28.414960",
+      "level": "WARNING",
+      "msg": "WARNING: Failed to register step in backend: HTTP Error 500: Internal Server Error",
+      "module": "observer",
+      "lineno": 278
+    },
+    {
+      "ts": "2026-02-21T19:39:54.328257",
+      "level": "WARNING",
+      "msg": "WARNING: Failed to register step in backend: HTTP Error 400: Bad Request",
+      "module": "observer",
+      "lineno": 278
+    }
+  ],
+  "summary": {
+    "total_steps": 5,
+    "total_duration_s": 64.26,
+    "loss_trend": {
+      "first": 0.169798,
+      "last": 0.02141,
+      "best": 0.02141,
+      "worst": 0.169798,
+      "delta": 0.148388,
+      "improved": true
+    },
+    "avg_tokens_per_sec": 0.0,
+    "profiler_highlight": {
+      "fwd_bwd_ratio": 0.1854,
+      "top_op": "model_backward",
+      "top_op_pct": 15.93,
+      "top_layer": "fc1",
+      "top_layer_pct": 36.47
+    }
+  }
+}

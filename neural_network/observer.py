@@ -21,7 +21,7 @@ import traceback
 from collections import defaultdict
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
@@ -89,21 +89,35 @@ class ObserverConfig:
 # ---------------------------------------------------------------------------
 
 class _LogCaptureHandler(logging.Handler):
-    """Lightweight handler that appends log records into a list."""
+    """Lightweight handler that appends log records into a list and optionally calls on_emit for real-time push."""
 
-    def __init__(self, store: list, min_level: int = logging.DEBUG):
+    def __init__(
+        self,
+        store: list,
+        min_level: int = logging.DEBUG,
+        on_emit: Optional[Callable[[Dict[str, Any], str], None]] = None,
+        kind: Literal["console", "error"] = "console",
+    ):
         super().__init__(min_level)
         self.store = store
+        self.on_emit = on_emit
+        self.kind = kind
 
     def emit(self, record):
         try:
-            self.store.append({
+            entry = {
                 "ts": datetime.now().isoformat(),
                 "level": record.levelname,
                 "msg": self.format(record),
                 "module": getattr(record, "module", ""),
                 "lineno": getattr(record, "lineno", 0),
-            })
+            }
+            self.store.append(entry)
+            if self.on_emit:
+                try:
+                    self.on_emit(entry, self.kind)
+                except Exception:
+                    pass  # never break the training loop
         except Exception:
             pass  # never break the training loop
 
@@ -208,12 +222,22 @@ class Observer:
         # ── Attach log capture ──
         self._capture_handlers: list = []
         if self.config.track_console_logs:
-            h = _LogCaptureHandler(self.console_logs, logging.INFO)
+            h = _LogCaptureHandler(
+                self.console_logs,
+                logging.INFO,
+                on_emit=lambda e, k: self._push_single_log_to_backend(e, k),
+                kind="console",
+            )
             h.setFormatter(logging.Formatter("%(message)s"))
             logging.getLogger().addHandler(h)
             self._capture_handlers.append(h)
         if self.config.track_error_logs:
-            h = _LogCaptureHandler(self.error_logs, logging.WARNING)
+            h = _LogCaptureHandler(
+                self.error_logs,
+                logging.WARNING,
+                on_emit=lambda e, k: self._push_single_log_to_backend(e, k),
+                kind="error",
+            )
             h.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
             logging.getLogger().addHandler(h)
             self._capture_handlers.append(h)
@@ -276,6 +300,31 @@ class Observer:
         except (HTTPError, URLError, OSError, json.JSONDecodeError) as e:
             self._log.warning(f"Failed to register model in backend: {e}")
             raise e
+
+    def _push_single_log_to_backend(self, entry: Dict[str, Any], kind: Literal["console", "error"]) -> None:
+        """Push a single log entry to the backend in real time via POST /sessions/{id}/log."""
+        if self._backend_session_id is None:
+            return
+        if kind == "console" and not self.config.track_console_logs:
+            return
+        if kind == "error" and not self.config.track_error_logs:
+            return
+        payload = {
+            "ts": entry["ts"],
+            "level": entry["level"],
+            "msg": entry["msg"],
+            "module": entry.get("module", ""),
+            "lineno": entry.get("lineno", 0),
+            "kind": kind,
+        }
+        url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/log"
+        body = json.dumps(payload).encode("utf-8")
+        req = Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=10):
+                pass
+        except (HTTPError, URLError, OSError, json.JSONDecodeError) as e:
+            self._log.warning(f"Failed to push log to backend: {e}")
 
     def _register_backend_step(self, rec: Dict[str, Any]) -> None:
         """Register the current step record with the backend via POST /sessions/{id}/step."""
@@ -731,6 +780,13 @@ class Observer:
             self._step_samples_processed += batch_size
         if batch_size and seq_length:
             self._step_tokens_processed += batch_size * seq_length
+
+        # Per-step log to verify backend log push (each step → one log entry on the backend)
+        self._log.info(
+            f"[observer] step={step} loss={loss_val:.6f}"
+            + (f" batch_size={batch_size}" if batch_size else "")
+            + (f" seq_length={seq_length}" if seq_length else "")
+        )
 
     def flush(
         self,

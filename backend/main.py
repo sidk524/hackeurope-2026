@@ -7,7 +7,9 @@ from routers import projects, sessions, diagnostics
 
 fastapi = FastAPI()
 
-allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+# With credentials, browser requires a specific origin (not "*"). Default to Next.js dev origin.
+_default_origins = "http://localhost:3000,http://127.0.0.1:3000"
+allowed_origins = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()]
 
 fastapi.add_middleware(
     CORSMiddleware,

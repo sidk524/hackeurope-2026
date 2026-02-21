@@ -36,11 +36,12 @@ class IssueCategory(str, Enum):
     sustainability = "sustainability"
 
 
-class Project(SQLModel, table=True):
+class ProjectBase(SQLModel):
     id: int | None = Field(primary_key=True, default=None)
     name: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+class Project(ProjectBase, table=True):
     sessions: list["TrainSession"] = Relationship(back_populates="project")
 
 
