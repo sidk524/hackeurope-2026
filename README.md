@@ -2,9 +2,7 @@
 <br />
 <div align="center">
 
-  <a href="https://x.com/hiresh_b">
-    <img src="https://img.shields.io/badge/X-Follow-black?style=flat-square&logo=x&logoColor=white" alt="X (Twitter) Follow">
-  </a>
+
   <a href="https://github.com/hireshBrem/browserbrain-ai">
     <img src="https://img.shields.io/github/last-commit/hireshBrem/browserbrain-ai?style=flat-square" alt="Last commit">
   </a>
