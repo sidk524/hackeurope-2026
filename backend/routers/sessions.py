@@ -1,10 +1,11 @@
+import time
 from typing import Literal
 from pydantic import BaseModel
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
-from sqlmodel import select
-from database import SessionDep
-from models import Model, TrainSession, SessionStatus
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from sqlmodel import select, Session
+from database import SessionDep, engine
+from models import Model, TrainSession, SessionStatus, TrainStep
 
 
 router = APIRouter(
@@ -29,6 +30,15 @@ class TrainSessionCreate(BaseModel):
     config: dict
     status: SessionStatus = SessionStatus.running
 
+class TrainStepCreate(BaseModel):
+    step_index: int
+    timestamp: str
+    duration_seconds: float
+    loss: dict
+    throughput: dict
+    profiler: dict
+    memory: dict
+    system: dict
 
 class TrainSessionUpdate(BaseModel):
     ended_at: datetime | None = None
@@ -95,3 +105,44 @@ def get_model(session_id: int, session: SessionDep):
     if not model:
         raise HTTPException(status_code=404, detail="No model registered for this session")
     return model
+
+    
+def _set_session_running_after_delay(session_id: int) -> None:
+    time.sleep(10)
+    with Session(engine) as db:
+        train_session = db.get(TrainSession, session_id)
+        if train_session:
+            train_session.status = SessionStatus.running
+            db.add(train_session)
+            db.commit()
+
+
+@router.post("/{session_id}/step", response_model=TrainStep)
+def register_step(
+    session_id: int,
+    step_create_request: TrainStepCreate,
+    session: SessionDep,
+    background: BackgroundTasks,
+):
+    train_session = session.get(TrainSession, session_id)
+    if not train_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if train_session.status != SessionStatus.running:
+        raise HTTPException(status_code=400, detail="Session is not running")
+    train_session.status = SessionStatus.pending # Indicate that the session is pending, awaiting the next action to be determined
+    session.add(train_session)
+    step_db = TrainStep(session_id=session_id, **step_create_request.model_dump())
+    session.add(step_db)
+    session.commit()
+    session.refresh(step_db)
+    background.add_task(_set_session_running_after_delay, session_id)
+    # TODO: analyze the step and determine the next action
+    return step_db
+
+@router.get("/{session_id}/step", response_model=list[TrainStep])
+def get_steps(session_id: int, session: SessionDep):
+    train_session = session.get(TrainSession, session_id)
+    if not train_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    steps = session.exec(select(TrainStep).where(TrainStep.session_id == session_id).order_by(TrainStep.step_index.asc())).all()
+    return steps

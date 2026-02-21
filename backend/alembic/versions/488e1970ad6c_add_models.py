@@ -1,19 +1,19 @@
 """Add models
 
-Revision ID: 5ff8b868ffb1
+Revision ID: 488e1970ad6c
 Revises: 
-Create Date: 2026-02-21 16:42:37.498166
+Create Date: 2026-02-21 19:43:56.618168
 
 """
 from typing import Sequence, Union
 
+from alembic import op
 import sqlalchemy as sa
 import sqlmodel
-from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = '5ff8b868ffb1'
+revision: str = '488e1970ad6c'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -69,9 +69,13 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('session_id', sa.Integer(), nullable=False),
     sa.Column('step_index', sa.Integer(), nullable=False),
-    sa.Column('timestamp', sa.DateTime(), nullable=False),
+    sa.Column('timestamp', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('duration_seconds', sa.Float(), nullable=False),
-    sa.Column('payload', sa.JSON(), nullable=True),
+    sa.Column('loss', sa.JSON(), nullable=True),
+    sa.Column('throughput', sa.JSON(), nullable=True),
+    sa.Column('profiler', sa.JSON(), nullable=True),
+    sa.Column('memory', sa.JSON(), nullable=True),
+    sa.Column('system', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['session_id'], ['trainsession.id'], ),
     sa.PrimaryKeyConstraint('id')
     )

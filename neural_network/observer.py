@@ -274,6 +274,30 @@ class Observer:
             self._log.warning(f"Failed to register model in backend: {e}")
             raise e
 
+    def _register_backend_step(self, rec: Dict[str, Any]) -> None:
+        """Register the current step record with the backend via POST /sessions/{id}/step."""
+        if self._backend_session_id is None:
+            return
+        payload = {
+            "step_index": rec["step"],
+            "timestamp": rec["timestamp"],
+            "duration_seconds": rec["duration_seconds"],
+            "loss": rec.get("loss") or {},
+            "throughput": rec.get("throughput") or {},
+            "profiler": rec.get("profiler") or {},
+            "memory": rec.get("memory") or {},
+            "system": rec.get("system") or {},
+        }
+        url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/step"
+        body = json.dumps(payload).encode("utf-8")
+        req = Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            self._log.info(f"Step {rec['step']} registered in backend | step_id={data.get('id', '?')}")
+        except (HTTPError, URLError, OSError, json.JSONDecodeError) as e:
+            self._log.warning(f"Failed to register step in backend: {e}")
+
     # ==================================================================
     # Model registration & architecture analysis
     # ==================================================================
@@ -833,6 +857,9 @@ class Observer:
                 self._log.warning(f"Carbon snapshot failed: {e}")
 
         self.step_data.append(rec)
+        self._log.info(f"Registering step {step_index} in backend")
+        self._register_backend_step(rec)
+        self._await_backend_status(rec) # Poll the backend for the status of the session 
         self._interval_started = False
         self._start_interval()
 
@@ -841,6 +868,35 @@ class Observer:
             f"--- Step {step_index} done | {duration:.2f}s | loss={loss_str} ---"
         )
         return rec
+
+
+    def _poll_backend_status(self, rec: Dict[str, Any]) -> Optional[str]:
+        """Poll the backend for the status of the session."""
+        url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/status"
+        req = Request(url, method="GET")
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        return data
+
+        
+    def _await_backend_status(self, rec: Dict[str, Any]) -> None:
+        """Await the status of the session."""
+        self._log.info(f"Awaiting backend status for session {self._backend_session_id}...")
+        while True:
+            status = self._poll_backend_status(rec)
+            self._log.info(f"Session status: {status}")
+            if status == "running":
+                return
+            if status == "completed":
+                self._log.info("Training completed")
+                self.close()  # Stop the training
+                return
+            if status == "failed":
+                self._log.info("Training is failed")
+                self.close()  # Stop the training
+                return
+            if status in ("paused", "pending"):
+                time.sleep(1)
 
     # ==================================================================
     # PyTorch Profiler

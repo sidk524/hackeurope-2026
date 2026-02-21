@@ -9,7 +9,6 @@ class SessionStatus(str, Enum):
     running = "running"
     completed = "completed"
     failed = "failed"
-    paused = "paused"
     pending = "pending"
 
 
@@ -79,7 +78,11 @@ class TrainStep(SQLModel, table=True):
     step_index: int
     timestamp: str
     duration_seconds: float
-    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
+    loss: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
+    throughput: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
+    profiler: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
+    memory: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
+    system: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON()))
 
     session: TrainSession = Relationship(back_populates="steps")
 
