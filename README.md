@@ -22,7 +22,7 @@
 
 
   <p align="center">
-    A research and action agent that is faster than ChatGPT Agent.
+    {subtitle}
 
 <a href="">View Demo</a>
 
@@ -57,7 +57,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-**Resac Agent** is a research and action agent. The agent takes in a prompt and it utilises sub-agents (excel, powerpoint, browser and research). 
+{about}
 
 <!-- GETTING STARTED -->
 ## Getting Started
