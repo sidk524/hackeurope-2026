@@ -1,3 +1,4 @@
 torch[cuda]
 psutil
 pydantic
+torchvision

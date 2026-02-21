@@ -21,6 +21,7 @@ env/
 *.onnx
 
 # Training outputs
+neural_network/sample/data/
 neural_network/sample/models/
 neural_network/sample/logs/
 neural_network/sample/observer_reports/
