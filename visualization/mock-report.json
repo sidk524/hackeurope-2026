@@ -1,0 +1,3886 @@
+{
+  "session": {
+    "api_key_prefix": "your-api...",
+    "project_id": "mini-gpt-experiment",
+    "run_id": "mini-gpt-experiment_childSpeech_128emb_4L_4H",
+    "run_name": "childSpeech_128emb_4L_4H",
+    "started_at": "2026-02-21T14:29:20.954229",
+    "ended_at": null,
+    "device": "cpu",
+    "cuda_available": false,
+    "pytorch_version": "2.10.0",
+    "config": {
+      "track_profiler": true,
+      "track_gradients": true,
+      "track_activations": true,
+      "track_memory": true,
+      "track_throughput": true,
+      "track_loss": true,
+      "track_weights": true,
+      "track_attention_entropy": true,
+      "track_console_logs": true,
+      "track_error_logs": true,
+      "track_hyperparameters": true,
+      "track_system_resources": true,
+      "profiler_record_shapes": true,
+      "profiler_profile_memory": true,
+      "profiler_with_stack": false,
+      "profiler_top_n_ops": 20,
+      "gradient_exploding_threshold": 10.0,
+      "gradient_vanishing_threshold": 1e-07,
+      "log_level": 20
+    }
+  },
+  "hyperparameters": {
+    "dataset": "input_childSpeech_trainingSet.txt",
+    "batch_size": 64,
+    "block_size": 128,
+    "max_iters": 1,
+    "eval_interval": 500,
+    "learning_rate": 0.0003,
+    "n_embd": 128,
+    "n_head": 4,
+    "n_layer": 4,
+    "dropout": 0.2,
+    "use_bias_in_attention": false,
+    "use_skip_connections": true,
+    "seed": 1337,
+    "device": "mps",
+    "eval_iters": 200,
+    "optimizer": "AdamW"
+  },
+  "model_architecture": {
+    "total_parameters": 818472,
+    "trainable_parameters": 818472,
+    "frozen_parameters": 0,
+    "num_parameter_layers": 72,
+    "layers": {
+      "token_embedding_table": {
+        "type": "Embedding",
+        "parameters": 5120,
+        "pct_of_total": 0.63
+      },
+      "position_embedding_table": {
+        "type": "Embedding",
+        "parameters": 16384,
+        "pct_of_total": 2.0
+      },
+      "blocks.0.sa.heads.0.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.0.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.0.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.1.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.1.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.1.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.2.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.2.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.2.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.3.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.3.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.heads.3.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.0.sa.proj": {
+        "type": "Linear",
+        "parameters": 16512,
+        "pct_of_total": 2.02
+      },
+      "blocks.0.ffwd.net.0": {
+        "type": "Linear",
+        "parameters": 66048,
+        "pct_of_total": 8.07
+      },
+      "blocks.0.ffwd.net.2": {
+        "type": "Linear",
+        "parameters": 65664,
+        "pct_of_total": 8.02
+      },
+      "blocks.0.ln1": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "blocks.0.ln2": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "blocks.1.sa.heads.0.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.0.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.0.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.1.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.1.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.1.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.2.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.2.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.2.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.3.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.3.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.heads.3.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.1.sa.proj": {
+        "type": "Linear",
+        "parameters": 16512,
+        "pct_of_total": 2.02
+      },
+      "blocks.1.ffwd.net.0": {
+        "type": "Linear",
+        "parameters": 66048,
+        "pct_of_total": 8.07
+      },
+      "blocks.1.ffwd.net.2": {
+        "type": "Linear",
+        "parameters": 65664,
+        "pct_of_total": 8.02
+      },
+      "blocks.1.ln1": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "blocks.1.ln2": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "blocks.2.sa.heads.0.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.0.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.0.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.1.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.1.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.1.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.2.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.2.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.2.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.3.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.3.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.heads.3.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.2.sa.proj": {
+        "type": "Linear",
+        "parameters": 16512,
+        "pct_of_total": 2.02
+      },
+      "blocks.2.ffwd.net.0": {
+        "type": "Linear",
+        "parameters": 66048,
+        "pct_of_total": 8.07
+      },
+      "blocks.2.ffwd.net.2": {
+        "type": "Linear",
+        "parameters": 65664,
+        "pct_of_total": 8.02
+      },
+      "blocks.2.ln1": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "blocks.2.ln2": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "blocks.3.sa.heads.0.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.0.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.0.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.1.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.1.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.1.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.2.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.2.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.2.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.3.key": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.3.query": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.heads.3.value": {
+        "type": "Linear",
+        "parameters": 4096,
+        "pct_of_total": 0.5
+      },
+      "blocks.3.sa.proj": {
+        "type": "Linear",
+        "parameters": 16512,
+        "pct_of_total": 2.02
+      },
+      "blocks.3.ffwd.net.0": {
+        "type": "Linear",
+        "parameters": 66048,
+        "pct_of_total": 8.07
+      },
+      "blocks.3.ffwd.net.2": {
+        "type": "Linear",
+        "parameters": 65664,
+        "pct_of_total": 8.02
+      },
+      "blocks.3.ln1": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "blocks.3.ln2": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "ln_f": {
+        "type": "LayerNorm",
+        "parameters": 256,
+        "pct_of_total": 0.03
+      },
+      "lm_head": {
+        "type": "Linear",
+        "parameters": 5160,
+        "pct_of_total": 0.63
+      }
+    },
+    "module_tree": {
+      "type": "GPTLanguageModel",
+      "children": {
+        "token_embedding_table": {
+          "type": "Embedding"
+        },
+        "position_embedding_table": {
+          "type": "Embedding"
+        },
+        "blocks": {
+          "type": "Sequential",
+          "children": {
+            "0": {
+              "type": "Block",
+              "children": {
+                "sa": {
+                  "type": "MultiHeadAttention",
+                  "children": {
+                    "heads": {
+                      "type": "ModuleList",
+                      "children": {
+                        "0": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "1": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "2": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "3": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "proj": {
+                      "type": "Linear"
+                    },
+                    "dropout": {
+                      "type": "Dropout"
+                    }
+                  }
+                },
+                "ffwd": {
+                  "type": "FeedFoward",
+                  "children": {
+                    "net": {
+                      "type": "Sequential",
+                      "children": {
+                        "0": {
+                          "type": "Linear"
+                        },
+                        "1": {
+                          "type": "ReLU"
+                        },
+                        "2": {
+                          "type": "Linear"
+                        },
+                        "3": {
+                          "type": "Dropout"
+                        }
+                      }
+                    }
+                  }
+                },
+                "ln1": {
+                  "type": "LayerNorm"
+                },
+                "ln2": {
+                  "type": "LayerNorm"
+                }
+              }
+            },
+            "1": {
+              "type": "Block",
+              "children": {
+                "sa": {
+                  "type": "MultiHeadAttention",
+                  "children": {
+                    "heads": {
+                      "type": "ModuleList",
+                      "children": {
+                        "0": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "1": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "2": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "3": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "proj": {
+                      "type": "Linear"
+                    },
+                    "dropout": {
+                      "type": "Dropout"
+                    }
+                  }
+                },
+                "ffwd": {
+                  "type": "FeedFoward",
+                  "children": {
+                    "net": {
+                      "type": "Sequential",
+                      "children": {
+                        "0": {
+                          "type": "Linear"
+                        },
+                        "1": {
+                          "type": "ReLU"
+                        },
+                        "2": {
+                          "type": "Linear"
+                        },
+                        "3": {
+                          "type": "Dropout"
+                        }
+                      }
+                    }
+                  }
+                },
+                "ln1": {
+                  "type": "LayerNorm"
+                },
+                "ln2": {
+                  "type": "LayerNorm"
+                }
+              }
+            },
+            "2": {
+              "type": "Block",
+              "children": {
+                "sa": {
+                  "type": "MultiHeadAttention",
+                  "children": {
+                    "heads": {
+                      "type": "ModuleList",
+                      "children": {
+                        "0": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "1": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "2": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "3": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "proj": {
+                      "type": "Linear"
+                    },
+                    "dropout": {
+                      "type": "Dropout"
+                    }
+                  }
+                },
+                "ffwd": {
+                  "type": "FeedFoward",
+                  "children": {
+                    "net": {
+                      "type": "Sequential",
+                      "children": {
+                        "0": {
+                          "type": "Linear"
+                        },
+                        "1": {
+                          "type": "ReLU"
+                        },
+                        "2": {
+                          "type": "Linear"
+                        },
+                        "3": {
+                          "type": "Dropout"
+                        }
+                      }
+                    }
+                  }
+                },
+                "ln1": {
+                  "type": "LayerNorm"
+                },
+                "ln2": {
+                  "type": "LayerNorm"
+                }
+              }
+            },
+            "3": {
+              "type": "Block",
+              "children": {
+                "sa": {
+                  "type": "MultiHeadAttention",
+                  "children": {
+                    "heads": {
+                      "type": "ModuleList",
+                      "children": {
+                        "0": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "1": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "2": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        },
+                        "3": {
+                          "type": "Head",
+                          "children": {
+                            "key": {
+                              "type": "Linear"
+                            },
+                            "query": {
+                              "type": "Linear"
+                            },
+                            "value": {
+                              "type": "Linear"
+                            },
+                            "dropout": {
+                              "type": "Dropout"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "proj": {
+                      "type": "Linear"
+                    },
+                    "dropout": {
+                      "type": "Dropout"
+                    }
+                  }
+                },
+                "ffwd": {
+                  "type": "FeedFoward",
+                  "children": {
+                    "net": {
+                      "type": "Sequential",
+                      "children": {
+                        "0": {
+                          "type": "Linear"
+                        },
+                        "1": {
+                          "type": "ReLU"
+                        },
+                        "2": {
+                          "type": "Linear"
+                        },
+                        "3": {
+                          "type": "Dropout"
+                        }
+                      }
+                    }
+                  }
+                },
+                "ln1": {
+                  "type": "LayerNorm"
+                },
+                "ln2": {
+                  "type": "LayerNorm"
+                }
+              }
+            }
+          }
+        },
+        "ln_f": {
+          "type": "LayerNorm"
+        },
+        "lm_head": {
+          "type": "Linear"
+        }
+      }
+    }
+  },
+  "epochs": [
+    {
+      "epoch": 0,
+      "timestamp": "2026-02-21T14:33:36.587562",
+      "duration_seconds": 254.7276,
+      "loss": {
+        "train_mean": 3.739521,
+        "train_min": 3.739521,
+        "train_max": 3.739521,
+        "train_first": 3.739521,
+        "train_last": 3.739521,
+        "train_std": 0.0,
+        "num_batches": 1,
+        "val": {
+          "val_loss": 3.432284,
+          "train_loss_eval": 3.431406
+        }
+      },
+      "throughput": {
+        "samples_processed": 64,
+        "tokens_processed": 8192,
+        "samples_per_second": 0.25,
+        "tokens_per_second": 32.16,
+        "batches_per_second": 0.0,
+        "seconds_per_batch": 254.7276
+      },
+      "gradients": {
+        "total_norm": 0.0,
+        "num_layers": 0,
+        "issues": [],
+        "health": "healthy",
+        "per_layer": {}
+      },
+      "weights": {
+        "token_embedding_table.weight": {
+          "mean": -0.00023499,
+          "std": 0.01986526,
+          "norm": 1.421403,
+          "min": -0.07166423,
+          "max": 0.08308326,
+          "numel": 5120
+        },
+        "position_embedding_table.weight": {
+          "mean": 9.157e-05,
+          "std": 0.01988498,
+          "norm": 2.545226,
+          "min": -0.08071963,
+          "max": 0.0754973,
+          "numel": 16384
+        },
+        "blocks.0.sa.heads.0.key.weight": {
+          "mean": -0.00019951,
+          "std": 0.01980963,
+          "norm": 1.267725,
+          "min": -0.06251902,
+          "max": 0.07434288,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.0.query.weight": {
+          "mean": -0.0001214,
+          "std": 0.01986494,
+          "norm": 1.271224,
+          "min": -0.06303439,
+          "max": 0.07206509,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.0.value.weight": {
+          "mean": -1.583e-05,
+          "std": 0.02006915,
+          "norm": 1.284269,
+          "min": -0.07125664,
+          "max": 0.07489301,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.1.key.weight": {
+          "mean": -0.00036408,
+          "std": 0.01979074,
+          "norm": 1.266667,
+          "min": -0.0705895,
+          "max": 0.06803126,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.1.query.weight": {
+          "mean": 0.00024242,
+          "std": 0.01992101,
+          "norm": 1.274883,
+          "min": -0.05814942,
+          "max": 0.07051553,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.1.value.weight": {
+          "mean": 5.696e-05,
+          "std": 0.01985067,
+          "norm": 1.270293,
+          "min": -0.07338434,
+          "max": 0.06625725,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.2.key.weight": {
+          "mean": 0.00011498,
+          "std": 0.01937204,
+          "norm": 1.239681,
+          "min": -0.08157613,
+          "max": 0.08914173,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.2.query.weight": {
+          "mean": -0.00019833,
+          "std": 0.01986941,
+          "norm": 1.27155,
+          "min": -0.07573742,
+          "max": 0.07313526,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.2.value.weight": {
+          "mean": -0.00086883,
+          "std": 0.02031953,
+          "norm": 1.301479,
+          "min": -0.0695527,
+          "max": 0.06274698,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.3.key.weight": {
+          "mean": -0.00015309,
+          "std": 0.01999694,
+          "norm": 1.279685,
+          "min": -0.08370446,
+          "max": 0.07789167,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.3.query.weight": {
+          "mean": -0.00022967,
+          "std": 0.02032517,
+          "norm": 1.300735,
+          "min": -0.06474523,
+          "max": 0.08128694,
+          "numel": 4096
+        },
+        "blocks.0.sa.heads.3.value.weight": {
+          "mean": -5.799e-05,
+          "std": 0.02004116,
+          "norm": 1.282483,
+          "min": -0.07394778,
+          "max": 0.07840131,
+          "numel": 4096
+        },
+        "blocks.0.sa.proj.weight": {
+          "mean": -6.764e-05,
+          "std": 0.02018545,
+          "norm": 2.583673,
+          "min": -0.08138816,
+          "max": 0.07819076,
+          "numel": 16384
+        },
+        "blocks.0.sa.proj.bias": {
+          "mean": 1.406e-05,
+          "std": 0.00030085,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.0.ffwd.net.0.weight": {
+          "mean": -2.479e-05,
+          "std": 0.01990378,
+          "norm": 5.095333,
+          "min": -0.09189208,
+          "max": 0.08360167,
+          "numel": 65536
+        },
+        "blocks.0.ffwd.net.0.bias": {
+          "mean": -7.03e-06,
+          "std": 0.0003002,
+          "norm": 0.006788,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 512
+        },
+        "blocks.0.ffwd.net.2.weight": {
+          "mean": -0.00010072,
+          "std": 0.01995193,
+          "norm": 5.10772,
+          "min": -0.1017795,
+          "max": 0.08351108,
+          "numel": 65536
+        },
+        "blocks.0.ffwd.net.2.bias": {
+          "mean": -4.69e-06,
+          "std": 0.00030114,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.0.ln1.weight": {
+          "mean": 0.99995947,
+          "std": 0.00029878,
+          "norm": 11.313251,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "blocks.0.ln1.bias": {
+          "mean": -2.344e-05,
+          "std": 0.00030025,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.0.ln2.weight": {
+          "mean": 1.00001121,
+          "std": 0.00030085,
+          "norm": 11.313835,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "blocks.0.ln2.bias": {
+          "mean": -1.875e-05,
+          "std": 0.00030058,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.1.sa.heads.0.key.weight": {
+          "mean": 0.0001777,
+          "std": 0.02012932,
+          "norm": 1.288169,
+          "min": -0.07270981,
+          "max": 0.07101045,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.0.query.weight": {
+          "mean": -0.00020991,
+          "std": 0.02031046,
+          "norm": 1.29978,
+          "min": -0.07573617,
+          "max": 0.0624106,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.0.value.weight": {
+          "mean": 0.00047841,
+          "std": 0.01996831,
+          "norm": 1.278183,
+          "min": -0.06843575,
+          "max": 0.07104231,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.1.key.weight": {
+          "mean": -0.00016888,
+          "std": 0.01987587,
+          "norm": 1.271947,
+          "min": -0.06573602,
+          "max": 0.07922452,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.1.query.weight": {
+          "mean": -2.433e-05,
+          "std": 0.02020218,
+          "norm": 1.292783,
+          "min": -0.07917931,
+          "max": 0.07835849,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.1.value.weight": {
+          "mean": -0.00019346,
+          "std": 0.01936696,
+          "norm": 1.239396,
+          "min": -0.06268859,
+          "max": 0.07276221,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.2.key.weight": {
+          "mean": 3.578e-05,
+          "std": 0.02031925,
+          "norm": 1.300275,
+          "min": -0.06961681,
+          "max": 0.06770232,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.2.query.weight": {
+          "mean": 3.64e-06,
+          "std": 0.0199156,
+          "norm": 1.274443,
+          "min": -0.07206721,
+          "max": 0.09534819,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.2.value.weight": {
+          "mean": -5.45e-06,
+          "std": 0.02043541,
+          "norm": 1.307707,
+          "min": -0.07120137,
+          "max": 0.09165552,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.3.key.weight": {
+          "mean": -0.00013605,
+          "std": 0.01973871,
+          "norm": 1.263153,
+          "min": -0.07212938,
+          "max": 0.07143437,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.3.query.weight": {
+          "mean": 0.00024911,
+          "std": 0.020579,
+          "norm": 1.316991,
+          "min": -0.0827571,
+          "max": 0.07888427,
+          "numel": 4096
+        },
+        "blocks.1.sa.heads.3.value.weight": {
+          "mean": -0.00030224,
+          "std": 0.01991836,
+          "norm": 1.274766,
+          "min": -0.06738614,
+          "max": 0.07041851,
+          "numel": 4096
+        },
+        "blocks.1.sa.proj.weight": {
+          "mean": 0.00014305,
+          "std": 0.02005639,
+          "norm": 2.567205,
+          "min": -0.07684926,
+          "max": 0.0852098,
+          "numel": 16384
+        },
+        "blocks.1.sa.proj.bias": {
+          "mean": 5.156e-05,
+          "std": 0.00029669,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.1.ffwd.net.0.weight": {
+          "mean": -4.985e-05,
+          "std": 0.02004243,
+          "norm": 5.130838,
+          "min": -0.08043011,
+          "max": 0.08266708,
+          "numel": 65536
+        },
+        "blocks.1.ffwd.net.0.bias": {
+          "mean": 2.32e-06,
+          "std": 0.00030026,
+          "norm": 0.006788,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 512
+        },
+        "blocks.1.ffwd.net.2.weight": {
+          "mean": 1.135e-05,
+          "std": 0.02005535,
+          "norm": 5.134131,
+          "min": -0.08610526,
+          "max": 0.08207659,
+          "numel": 65536
+        },
+        "blocks.1.ffwd.net.2.bias": {
+          "mean": 1.875e-05,
+          "std": 0.00030059,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.1.ln1.weight": {
+          "mean": 0.99996424,
+          "std": 0.00029935,
+          "norm": 11.313305,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "blocks.1.ln1.bias": {
+          "mean": -3.75e-05,
+          "std": 0.00029881,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.1.ln2.weight": {
+          "mean": 0.99999237,
+          "std": 0.00030113,
+          "norm": 11.313622,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "blocks.1.ln2.bias": {
+          "mean": 4.218e-05,
+          "std": 0.00029817,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.2.sa.heads.0.key.weight": {
+          "mean": 0.000151,
+          "std": 0.02016419,
+          "norm": 1.290387,
+          "min": -0.07433975,
+          "max": 0.09453738,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.0.query.weight": {
+          "mean": 7.498e-05,
+          "std": 0.02047335,
+          "norm": 1.310143,
+          "min": -0.06627295,
+          "max": 0.07573077,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.0.value.weight": {
+          "mean": 7.875e-05,
+          "std": 0.0197547,
+          "norm": 1.264157,
+          "min": -0.06646717,
+          "max": 0.06974252,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.1.key.weight": {
+          "mean": -0.00022382,
+          "std": 0.01995604,
+          "norm": 1.277111,
+          "min": -0.0699843,
+          "max": 0.07818715,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.1.query.weight": {
+          "mean": 0.00011328,
+          "std": 0.02012445,
+          "norm": 1.287828,
+          "min": -0.08076332,
+          "max": 0.06869448,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.1.value.weight": {
+          "mean": 0.00075707,
+          "std": 0.01997792,
+          "norm": 1.279349,
+          "min": -0.06680121,
+          "max": 0.07151585,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.2.key.weight": {
+          "mean": -0.00069556,
+          "std": 0.01991347,
+          "norm": 1.275084,
+          "min": -0.0718377,
+          "max": 0.07631584,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.2.query.weight": {
+          "mean": -0.00049813,
+          "std": 0.02005692,
+          "norm": 1.283882,
+          "min": -0.07611565,
+          "max": 0.07401431,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.2.value.weight": {
+          "mean": 2.84e-06,
+          "std": 0.02008134,
+          "norm": 1.285049,
+          "min": -0.07023661,
+          "max": 0.06699003,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.3.key.weight": {
+          "mean": -0.00022897,
+          "std": 0.01996516,
+          "norm": 1.277698,
+          "min": -0.08027066,
+          "max": 0.06841619,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.3.query.weight": {
+          "mean": 0.0002836,
+          "std": 0.02000285,
+          "norm": 1.280155,
+          "min": -0.06776939,
+          "max": 0.07801358,
+          "numel": 4096
+        },
+        "blocks.2.sa.heads.3.value.weight": {
+          "mean": -0.00044391,
+          "std": 0.01978537,
+          "norm": 1.266428,
+          "min": -0.06374352,
+          "max": 0.0765459,
+          "numel": 4096
+        },
+        "blocks.2.sa.proj.weight": {
+          "mean": 4.129e-05,
+          "std": 0.01996092,
+          "norm": 2.554925,
+          "min": -0.07429037,
+          "max": 0.07281708,
+          "numel": 16384
+        },
+        "blocks.2.sa.proj.bias": {
+          "mean": 1.406e-05,
+          "std": 0.00030085,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.2.ffwd.net.0.weight": {
+          "mean": 2.123e-05,
+          "std": 0.01993483,
+          "norm": 5.103281,
+          "min": -0.0836793,
+          "max": 0.08619373,
+          "numel": 65536
+        },
+        "blocks.2.ffwd.net.0.bias": {
+          "mean": 9.38e-06,
+          "std": 0.00030014,
+          "norm": 0.006788,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 512
+        },
+        "blocks.2.ffwd.net.2.weight": {
+          "mean": 6.077e-05,
+          "std": 0.01999681,
+          "norm": 5.119168,
+          "min": -0.08499911,
+          "max": 0.08576703,
+          "numel": 65536
+        },
+        "blocks.2.ffwd.net.2.bias": {
+          "mean": 9.37e-06,
+          "std": 0.00030103,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.2.ln1.weight": {
+          "mean": 0.99996424,
+          "std": 0.00029933,
+          "norm": 11.313305,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "blocks.2.ln1.bias": {
+          "mean": -2.343e-05,
+          "std": 0.00030025,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.2.ln2.weight": {
+          "mean": 1.00001097,
+          "std": 0.00030081,
+          "norm": 11.313834,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "blocks.2.ln2.bias": {
+          "mean": 1.875e-05,
+          "std": 0.00030059,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.3.sa.heads.0.key.weight": {
+          "mean": -0.00030211,
+          "std": 0.0200734,
+          "norm": 1.284686,
+          "min": -0.06818422,
+          "max": 0.08028348,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.0.query.weight": {
+          "mean": -0.00021176,
+          "std": 0.01994531,
+          "norm": 1.276416,
+          "min": -0.06725819,
+          "max": 0.07063216,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.0.value.weight": {
+          "mean": 0.00026829,
+          "std": 0.02032759,
+          "norm": 1.30092,
+          "min": -0.06212065,
+          "max": 0.09762698,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.1.key.weight": {
+          "mean": 0.0005445,
+          "std": 0.01995664,
+          "norm": 1.277544,
+          "min": -0.06724603,
+          "max": 0.06489598,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.1.query.weight": {
+          "mean": 0.00069926,
+          "std": 0.02016984,
+          "norm": 1.291488,
+          "min": -0.08116598,
+          "max": 0.08018696,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.1.value.weight": {
+          "mean": 0.00044412,
+          "std": 0.01968875,
+          "norm": 1.260247,
+          "min": -0.07432821,
+          "max": 0.06305914,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.2.key.weight": {
+          "mean": -0.00032532,
+          "std": 0.02015824,
+          "norm": 1.290138,
+          "min": -0.06916214,
+          "max": 0.08586935,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.2.query.weight": {
+          "mean": 0.00026177,
+          "std": 0.02033787,
+          "norm": 1.301572,
+          "min": -0.07820588,
+          "max": 0.06579766,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.2.value.weight": {
+          "mean": -0.00015976,
+          "std": 0.01993765,
+          "norm": 1.275895,
+          "min": -0.08008107,
+          "max": 0.07997213,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.3.key.weight": {
+          "mean": 0.00036912,
+          "std": 0.02000248,
+          "norm": 1.28022,
+          "min": -0.08969359,
+          "max": 0.07125092,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.3.query.weight": {
+          "mean": -0.00016565,
+          "std": 0.01959922,
+          "norm": 1.254242,
+          "min": -0.07637398,
+          "max": 0.07082507,
+          "numel": 4096
+        },
+        "blocks.3.sa.heads.3.value.weight": {
+          "mean": 0.0001341,
+          "std": 0.01992362,
+          "norm": 1.274985,
+          "min": -0.07245261,
+          "max": 0.07412513,
+          "numel": 4096
+        },
+        "blocks.3.sa.proj.weight": {
+          "mean": -2.386e-05,
+          "std": 0.01996131,
+          "norm": 2.554972,
+          "min": -0.07453763,
+          "max": 0.07407019,
+          "numel": 16384
+        },
+        "blocks.3.sa.proj.bias": {
+          "mean": 0.0,
+          "std": 0.00030118,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.3.ffwd.net.0.weight": {
+          "mean": -3.665e-05,
+          "std": 0.02008184,
+          "norm": 5.140922,
+          "min": -0.08494031,
+          "max": 0.08358707,
+          "numel": 65536
+        },
+        "blocks.3.ffwd.net.0.bias": {
+          "mean": 1.052e-05,
+          "std": 0.00030008,
+          "norm": 0.006788,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 512
+        },
+        "blocks.3.ffwd.net.2.weight": {
+          "mean": 2.231e-05,
+          "std": 0.02005125,
+          "norm": 5.133084,
+          "min": -0.08287968,
+          "max": 0.08020245,
+          "numel": 65536
+        },
+        "blocks.3.ffwd.net.2.bias": {
+          "mean": -1.406e-05,
+          "std": 0.00030085,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.3.ln1.weight": {
+          "mean": 0.9999783,
+          "std": 0.00030055,
+          "norm": 11.313463,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "blocks.3.ln1.bias": {
+          "mean": 1.406e-05,
+          "std": 0.00030084,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "blocks.3.ln2.weight": {
+          "mean": 1.00003457,
+          "std": 0.0002988,
+          "norm": 11.314099,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "blocks.3.ln2.bias": {
+          "mean": -4.224e-05,
+          "std": 0.00029811,
+          "norm": 0.003393,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "ln_f.weight": {
+          "mean": 0.99995953,
+          "std": 0.00029881,
+          "norm": 11.313251,
+          "min": 0.99969703,
+          "max": 1.00029707,
+          "numel": 128
+        },
+        "ln_f.bias": {
+          "mean": -2.813e-05,
+          "std": 0.00029985,
+          "norm": 0.003394,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 128
+        },
+        "lm_head.weight": {
+          "mean": 0.00012558,
+          "std": 0.0200205,
+          "norm": 1.432439,
+          "min": -0.07904981,
+          "max": 0.07201928,
+          "numel": 5120
+        },
+        "lm_head.bias": {
+          "mean": -6e-05,
+          "std": 0.00029768,
+          "norm": 0.001897,
+          "min": -0.0003,
+          "max": 0.0003,
+          "numel": 40
+        }
+      },
+      "activations": {
+        "token_embedding_table": {
+          "mean": 0.000214,
+          "std": 0.020217,
+          "min": -0.071664,
+          "max": 0.083083,
+          "abs_mean": 0.016306,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 0.000138,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "position_embedding_table": {
+          "mean": 9.2e-05,
+          "std": 0.019885,
+          "min": -0.08072,
+          "max": 0.075497,
+          "abs_mean": 0.015884,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            128,
+            128
+          ]
+        },
+        "blocks.0.ln1": {
+          "mean": -2.1e-05,
+          "std": 0.993628,
+          "min": -4.321033,
+          "max": 4.665671,
+          "abs_mean": 0.794941,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 3e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.sa.heads.0.key": {
+          "mean": -0.006835,
+          "std": 0.225019,
+          "min": -0.866794,
+          "max": 0.927745,
+          "abs_mean": 0.180338,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.0.query": {
+          "mean": 0.006366,
+          "std": 0.220705,
+          "min": -0.897333,
+          "max": 0.960954,
+          "abs_mean": 0.17608,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.0.dropout": {
+          "mean": 0.007812,
+          "std": 0.016466,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.sa.heads.0.value": {
+          "mean": -0.007466,
+          "std": 0.227121,
+          "min": -0.863214,
+          "max": 1.092157,
+          "abs_mean": 0.180799,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 3.8e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.1.key": {
+          "mean": -0.008664,
+          "std": 0.220557,
+          "min": -0.949458,
+          "max": 1.003767,
+          "abs_mean": 0.175211,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.1.query": {
+          "mean": 0.009819,
+          "std": 0.222923,
+          "min": -0.898508,
+          "max": 0.86805,
+          "abs_mean": 0.178439,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2.7e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.1.dropout": {
+          "mean": 0.007812,
+          "std": 0.016465,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.sa.heads.1.value": {
+          "mean": -0.00386,
+          "std": 0.224724,
+          "min": -0.899637,
+          "max": 1.044958,
+          "abs_mean": 0.179488,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4.2e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.2.key": {
+          "mean": 0.015697,
+          "std": 0.21657,
+          "min": -0.877267,
+          "max": 0.885872,
+          "abs_mean": 0.173345,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2.7e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.2.query": {
+          "mean": 0.004715,
+          "std": 0.223821,
+          "min": -0.969049,
+          "max": 0.966999,
+          "abs_mean": 0.17814,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 5.7e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.2.dropout": {
+          "mean": 0.007812,
+          "std": 0.016467,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.sa.heads.2.value": {
+          "mean": 0.008062,
+          "std": 0.22974,
+          "min": -0.97444,
+          "max": 1.185599,
+          "abs_mean": 0.183763,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.3.key": {
+          "mean": 0.008774,
+          "std": 0.223313,
+          "min": -0.942278,
+          "max": 0.901468,
+          "abs_mean": 0.178114,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1.5e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.3.query": {
+          "mean": 0.00399,
+          "std": 0.230066,
+          "min": -0.987515,
+          "max": 1.061263,
+          "abs_mean": 0.183654,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.heads.3.dropout": {
+          "mean": 0.007812,
+          "std": 0.016469,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.sa.heads.3.value": {
+          "mean": -0.010492,
+          "std": 0.224239,
+          "min": -0.977887,
+          "max": 0.863005,
+          "abs_mean": 0.179413,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.0.sa.proj": {
+          "mean": 0.000759,
+          "std": 0.014497,
+          "min": -0.147954,
+          "max": 0.163482,
+          "abs_mean": 0.010858,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.sa.dropout": {
+          "mean": 0.000759,
+          "std": 0.014497,
+          "min": -0.147954,
+          "max": 0.163482,
+          "abs_mean": 0.010858,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.ln2": {
+          "mean": -3.9e-05,
+          "std": 0.994841,
+          "min": -4.293913,
+          "max": 4.175106,
+          "abs_mean": 0.795031,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.ffwd.net.0": {
+          "mean": -0.002007,
+          "std": 0.225758,
+          "min": -1.186372,
+          "max": 1.150559,
+          "abs_mean": 0.179813,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 0.0,
+          "shape": [
+            64,
+            128,
+            512
+          ]
+        },
+        "blocks.0.ffwd.net.2": {
+          "mean": -0.004964,
+          "std": 0.075147,
+          "min": -0.343659,
+          "max": 0.352752,
+          "abs_mean": 0.060228,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.0.ffwd.net.3": {
+          "mean": -0.004964,
+          "std": 0.075147,
+          "min": -0.343659,
+          "max": 0.352752,
+          "abs_mean": 0.060228,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.ln1": {
+          "mean": -6.8e-05,
+          "std": 0.999229,
+          "min": -4.35232,
+          "max": 4.498883,
+          "abs_mean": 0.799816,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.sa.heads.0.key": {
+          "mean": 0.025444,
+          "std": 0.233153,
+          "min": -0.959985,
+          "max": 0.934972,
+          "abs_mean": 0.187747,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.0.query": {
+          "mean": 0.008398,
+          "std": 0.21358,
+          "min": -0.849965,
+          "max": 0.862293,
+          "abs_mean": 0.171121,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.0.dropout": {
+          "mean": 0.007812,
+          "std": 0.016459,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.sa.heads.0.value": {
+          "mean": 0.01141,
+          "std": 0.229234,
+          "min": -0.883138,
+          "max": 0.944209,
+          "abs_mean": 0.184811,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.1.key": {
+          "mean": 0.022783,
+          "std": 0.237591,
+          "min": -0.953072,
+          "max": 0.92656,
+          "abs_mean": 0.192397,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.1.query": {
+          "mean": -0.022311,
+          "std": 0.239178,
+          "min": -1.070582,
+          "max": 0.800941,
+          "abs_mean": 0.192631,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.1.dropout": {
+          "mean": 0.007812,
+          "std": 0.01646,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.sa.heads.1.value": {
+          "mean": -0.005124,
+          "std": 0.215027,
+          "min": -0.814552,
+          "max": 0.879003,
+          "abs_mean": 0.172113,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.2.key": {
+          "mean": -0.000946,
+          "std": 0.217116,
+          "min": -0.986269,
+          "max": 0.893351,
+          "abs_mean": 0.172319,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.2.query": {
+          "mean": -0.029527,
+          "std": 0.220352,
+          "min": -0.945183,
+          "max": 0.984987,
+          "abs_mean": 0.177605,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.2.dropout": {
+          "mean": 0.007812,
+          "std": 0.016461,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.sa.heads.2.value": {
+          "mean": 0.021489,
+          "std": 0.229923,
+          "min": -0.999678,
+          "max": 1.063434,
+          "abs_mean": 0.186635,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1.1e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.3.key": {
+          "mean": -0.022158,
+          "std": 0.20753,
+          "min": -0.990652,
+          "max": 0.838007,
+          "abs_mean": 0.165774,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.3.query": {
+          "mean": -0.006701,
+          "std": 0.220436,
+          "min": -1.034957,
+          "max": 0.845042,
+          "abs_mean": 0.173247,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.heads.3.dropout": {
+          "mean": 0.007812,
+          "std": 0.016457,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.sa.heads.3.value": {
+          "mean": -0.011005,
+          "std": 0.218395,
+          "min": -0.918144,
+          "max": 0.866178,
+          "abs_mean": 0.174188,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.1.sa.proj": {
+          "mean": -4.4e-05,
+          "std": 0.036335,
+          "min": -0.182147,
+          "max": 0.171302,
+          "abs_mean": 0.027881,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 6e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.sa.dropout": {
+          "mean": -4.4e-05,
+          "std": 0.036335,
+          "min": -0.182147,
+          "max": 0.171302,
+          "abs_mean": 0.027881,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 6e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.ln2": {
+          "mean": 6e-05,
+          "std": 0.999434,
+          "min": -4.902753,
+          "max": 4.416845,
+          "abs_mean": 0.801923,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.ffwd.net.0": {
+          "mean": -0.000464,
+          "std": 0.224861,
+          "min": -0.985953,
+          "max": 1.100977,
+          "abs_mean": 0.178861,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 0.0,
+          "shape": [
+            64,
+            128,
+            512
+          ]
+        },
+        "blocks.1.ffwd.net.2": {
+          "mean": 0.004834,
+          "std": 0.080614,
+          "min": -0.308867,
+          "max": 0.349647,
+          "abs_mean": 0.064267,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.1.ffwd.net.3": {
+          "mean": 0.004834,
+          "std": 0.080614,
+          "min": -0.308867,
+          "max": 0.349647,
+          "abs_mean": 0.064267,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.ln1": {
+          "mean": -3.2e-05,
+          "std": 0.999644,
+          "min": -3.908698,
+          "max": 4.194222,
+          "abs_mean": 0.801083,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 3e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.sa.heads.0.key": {
+          "mean": 0.040739,
+          "std": 0.243992,
+          "min": -0.858265,
+          "max": 1.006358,
+          "abs_mean": 0.197234,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.0.query": {
+          "mean": 0.035478,
+          "std": 0.241525,
+          "min": -0.945011,
+          "max": 1.017479,
+          "abs_mean": 0.198771,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.0.dropout": {
+          "mean": 0.007812,
+          "std": 0.01646,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.sa.heads.0.value": {
+          "mean": 0.004155,
+          "std": 0.216751,
+          "min": -0.973096,
+          "max": 0.78867,
+          "abs_mean": 0.177014,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.1.key": {
+          "mean": 0.00276,
+          "std": 0.222426,
+          "min": -0.901262,
+          "max": 0.931604,
+          "abs_mean": 0.179877,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.1.query": {
+          "mean": -0.03223,
+          "std": 0.21656,
+          "min": -0.948268,
+          "max": 0.929905,
+          "abs_mean": 0.173563,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.1.dropout": {
+          "mean": 0.007812,
+          "std": 0.016455,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.sa.heads.1.value": {
+          "mean": 0.019586,
+          "std": 0.225432,
+          "min": -0.855672,
+          "max": 1.05565,
+          "abs_mean": 0.175668,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.2.key": {
+          "mean": 0.003323,
+          "std": 0.22323,
+          "min": -0.897326,
+          "max": 0.785576,
+          "abs_mean": 0.179864,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.2.query": {
+          "mean": -0.018236,
+          "std": 0.205829,
+          "min": -0.807901,
+          "max": 0.789581,
+          "abs_mean": 0.164825,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.2.dropout": {
+          "mean": 0.007812,
+          "std": 0.016454,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.sa.heads.2.value": {
+          "mean": 0.021897,
+          "std": 0.259341,
+          "min": -0.891732,
+          "max": 0.918226,
+          "abs_mean": 0.213492,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.3.key": {
+          "mean": -0.004071,
+          "std": 0.224871,
+          "min": -0.897429,
+          "max": 0.808394,
+          "abs_mean": 0.18177,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.3.query": {
+          "mean": -0.017434,
+          "std": 0.253425,
+          "min": -1.09847,
+          "max": 0.987032,
+          "abs_mean": 0.20247,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.heads.3.dropout": {
+          "mean": 0.007812,
+          "std": 0.016459,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.sa.heads.3.value": {
+          "mean": 0.015224,
+          "std": 0.230191,
+          "min": -0.947466,
+          "max": 0.924147,
+          "abs_mean": 0.184558,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.2.sa.proj": {
+          "mean": 0.001314,
+          "std": 0.043031,
+          "min": -0.178627,
+          "max": 0.193621,
+          "abs_mean": 0.034202,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.sa.dropout": {
+          "mean": 0.001314,
+          "std": 0.043031,
+          "min": -0.178627,
+          "max": 0.193621,
+          "abs_mean": 0.034202,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.ln2": {
+          "mean": 2.7e-05,
+          "std": 0.999818,
+          "min": -4.116068,
+          "max": 4.180908,
+          "abs_mean": 0.795099,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.ffwd.net.0": {
+          "mean": -0.008883,
+          "std": 0.226455,
+          "min": -1.021349,
+          "max": 0.980316,
+          "abs_mean": 0.180724,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 0.0,
+          "shape": [
+            64,
+            128,
+            512
+          ]
+        },
+        "blocks.2.ffwd.net.2": {
+          "mean": -0.000518,
+          "std": 0.078568,
+          "min": -0.333145,
+          "max": 0.336044,
+          "abs_mean": 0.062212,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.2.ffwd.net.3": {
+          "mean": -0.000518,
+          "std": 0.078568,
+          "min": -0.333145,
+          "max": 0.336044,
+          "abs_mean": 0.062212,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.ln1": {
+          "mean": 3e-05,
+          "std": 0.99985,
+          "min": -3.919229,
+          "max": 4.028961,
+          "abs_mean": 0.796205,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.sa.heads.0.key": {
+          "mean": -0.002249,
+          "std": 0.198005,
+          "min": -0.733664,
+          "max": 0.679266,
+          "abs_mean": 0.161008,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.0.query": {
+          "mean": 0.026592,
+          "std": 0.194903,
+          "min": -0.787383,
+          "max": 0.815046,
+          "abs_mean": 0.154533,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.0.dropout": {
+          "mean": 0.007812,
+          "std": 0.016453,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.sa.heads.0.value": {
+          "mean": 0.044546,
+          "std": 0.214333,
+          "min": -0.779508,
+          "max": 0.893186,
+          "abs_mean": 0.174451,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.1.key": {
+          "mean": 0.022482,
+          "std": 0.225851,
+          "min": -0.69202,
+          "max": 1.064486,
+          "abs_mean": 0.17439,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1.5e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.1.query": {
+          "mean": 0.022088,
+          "std": 0.292366,
+          "min": -0.975771,
+          "max": 0.963119,
+          "abs_mean": 0.2337,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1.1e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.1.dropout": {
+          "mean": 0.007812,
+          "std": 0.016458,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.sa.heads.1.value": {
+          "mean": 0.004967,
+          "std": 0.20408,
+          "min": -0.714655,
+          "max": 0.715023,
+          "abs_mean": 0.16463,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 8e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.2.key": {
+          "mean": 0.020792,
+          "std": 0.220533,
+          "min": -0.780498,
+          "max": 0.823985,
+          "abs_mean": 0.178159,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.2.query": {
+          "mean": 0.003273,
+          "std": 0.216629,
+          "min": -0.929257,
+          "max": 0.88737,
+          "abs_mean": 0.169452,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.2.dropout": {
+          "mean": 0.007812,
+          "std": 0.016454,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.sa.heads.2.value": {
+          "mean": -0.030485,
+          "std": 0.220696,
+          "min": -0.800471,
+          "max": 0.732036,
+          "abs_mean": 0.176701,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1.1e-05,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.3.key": {
+          "mean": 0.040538,
+          "std": 0.229011,
+          "min": -0.776065,
+          "max": 0.869632,
+          "abs_mean": 0.18471,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.3.query": {
+          "mean": -0.011252,
+          "std": 0.227037,
+          "min": -0.971912,
+          "max": 0.837587,
+          "abs_mean": 0.178504,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.heads.3.dropout": {
+          "mean": 0.007812,
+          "std": 0.016454,
+          "min": 0.0,
+          "max": 1.0,
+          "abs_mean": 0.007812,
+          "dead_fraction": 0.496094,
+          "saturated_fraction": 6.1e-05,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.sa.heads.3.value": {
+          "mean": -0.013015,
+          "std": 0.243822,
+          "min": -0.891373,
+          "max": 0.835433,
+          "abs_mean": 0.20122,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 4e-06,
+          "shape": [
+            64,
+            128,
+            32
+          ]
+        },
+        "blocks.3.sa.proj": {
+          "mean": -0.001967,
+          "std": 0.041053,
+          "min": -0.153033,
+          "max": 0.147791,
+          "abs_mean": 0.03382,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.sa.dropout": {
+          "mean": -0.001967,
+          "std": 0.041053,
+          "min": -0.153033,
+          "max": 0.147791,
+          "abs_mean": 0.03382,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.ln2": {
+          "mean": -2.7e-05,
+          "std": 0.999931,
+          "min": -3.926588,
+          "max": 4.094069,
+          "abs_mean": 0.795874,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.ffwd.net.0": {
+          "mean": -0.00669,
+          "std": 0.231733,
+          "min": -0.998217,
+          "max": 1.089378,
+          "abs_mean": 0.184717,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 0.0,
+          "shape": [
+            64,
+            128,
+            512
+          ]
+        },
+        "blocks.3.ffwd.net.2": {
+          "mean": 0.007537,
+          "std": 0.0771,
+          "min": -0.333558,
+          "max": 0.27499,
+          "abs_mean": 0.06269,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "blocks.3.ffwd.net.3": {
+          "mean": 0.007537,
+          "std": 0.0771,
+          "min": -0.333558,
+          "max": 0.27499,
+          "abs_mean": 0.06269,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 1e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "ln_f": {
+          "mean": -3.1e-05,
+          "std": 1.000082,
+          "min": -3.67362,
+          "max": 3.910707,
+          "abs_mean": 0.798708,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 2e-06,
+          "shape": [
+            64,
+            128,
+            128
+          ]
+        },
+        "lm_head": {
+          "mean": -0.020841,
+          "std": 0.31282,
+          "min": -0.865059,
+          "max": 1.387926,
+          "abs_mean": 0.250577,
+          "dead_fraction": 0.0,
+          "saturated_fraction": 3e-06,
+          "shape": [
+            64,
+            128,
+            40
+          ]
+        }
+      },
+      "attention_entropy": {
+        "blocks.0.sa.heads.0.key": {
+          "output_entropy": 3.191788,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.921,
+          "output_sparsity": 0.00045
+        },
+        "blocks.0.sa.heads.0.query": {
+          "output_entropy": 3.186532,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9194,
+          "output_sparsity": 0.000298
+        },
+        "blocks.0.sa.heads.0.dropout": {
+          "output_entropy": 3.876943,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.799,
+          "output_sparsity": 0.496094
+        },
+        "blocks.0.sa.heads.0.value": {
+          "output_entropy": 3.18566,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9192,
+          "output_sparsity": 0.000332
+        },
+        "blocks.0.sa.heads.0": {
+          "output_entropy": 3.15729,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.911,
+          "output_sparsity": 0.001698
+        },
+        "blocks.0.sa.heads.1.key": {
+          "output_entropy": 3.183541,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9186,
+          "output_sparsity": 0.000404
+        },
+        "blocks.0.sa.heads.1.query": {
+          "output_entropy": 3.189879,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9204,
+          "output_sparsity": 0.000381
+        },
+        "blocks.0.sa.heads.1.dropout": {
+          "output_entropy": 3.876996,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.799,
+          "output_sparsity": 0.496094
+        },
+        "blocks.0.sa.heads.1.value": {
+          "output_entropy": 3.188581,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.92,
+          "output_sparsity": 0.000366
+        },
+        "blocks.0.sa.heads.1": {
+          "output_entropy": 3.166033,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9135,
+          "output_sparsity": 0.00198
+        },
+        "blocks.0.sa.heads.2.key": {
+          "output_entropy": 3.188138,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9199,
+          "output_sparsity": 0.000492
+        },
+        "blocks.0.sa.heads.2.query": {
+          "output_entropy": 3.187739,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9198,
+          "output_sparsity": 0.000469
+        },
+        "blocks.0.sa.heads.2.dropout": {
+          "output_entropy": 3.877024,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7991,
+          "output_sparsity": 0.496094
+        },
+        "blocks.0.sa.heads.2.value": {
+          "output_entropy": 3.189396,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9203,
+          "output_sparsity": 0.000225
+        },
+        "blocks.0.sa.heads.2": {
+          "output_entropy": 3.191542,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9209,
+          "output_sparsity": 0.001465
+        },
+        "blocks.0.sa.heads.3.key": {
+          "output_entropy": 3.184877,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.919,
+          "output_sparsity": 0.000477
+        },
+        "blocks.0.sa.heads.3.query": {
+          "output_entropy": 3.188284,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9199,
+          "output_sparsity": 0.000481
+        },
+        "blocks.0.sa.heads.3.dropout": {
+          "output_entropy": 3.876902,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.799,
+          "output_sparsity": 0.496094
+        },
+        "blocks.0.sa.heads.3.value": {
+          "output_entropy": 3.189903,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9204,
+          "output_sparsity": 0.000351
+        },
+        "blocks.0.sa.heads.3": {
+          "output_entropy": 3.165547,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9134,
+          "output_sparsity": 0.001442
+        },
+        "blocks.0.sa.proj": {
+          "output_entropy": 4.57322,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9425,
+          "output_sparsity": 0.00621
+        },
+        "blocks.0.sa.dropout": {
+          "output_entropy": 4.57322,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9425,
+          "output_sparsity": 0.00621
+        },
+        "blocks.0.sa": {
+          "output_entropy": 4.57322,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9425,
+          "output_sparsity": 0.00621
+        },
+        "blocks.1.sa.heads.0.key": {
+          "output_entropy": 3.191287,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9208,
+          "output_sparsity": 0.000317
+        },
+        "blocks.1.sa.heads.0.query": {
+          "output_entropy": 3.192635,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9212,
+          "output_sparsity": 0.000462
+        },
+        "blocks.1.sa.heads.0.dropout": {
+          "output_entropy": 3.877529,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7992,
+          "output_sparsity": 0.496094
+        },
+        "blocks.1.sa.heads.0.value": {
+          "output_entropy": 3.196847,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9224,
+          "output_sparsity": 0.00032
+        },
+        "blocks.1.sa.heads.0": {
+          "output_entropy": 3.195333,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.922,
+          "output_sparsity": 0.000557
+        },
+        "blocks.1.sa.heads.1.key": {
+          "output_entropy": 3.199724,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9232,
+          "output_sparsity": 0.000324
+        },
+        "blocks.1.sa.heads.1.query": {
+          "output_entropy": 3.191349,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9208,
+          "output_sparsity": 0.000359
+        },
+        "blocks.1.sa.heads.1.dropout": {
+          "output_entropy": 3.877398,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7991,
+          "output_sparsity": 0.496094
+        },
+        "blocks.1.sa.heads.1.value": {
+          "output_entropy": 3.189385,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9203,
+          "output_sparsity": 0.000397
+        },
+        "blocks.1.sa.heads.1": {
+          "output_entropy": 3.201192,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9237,
+          "output_sparsity": 0.000488
+        },
+        "blocks.1.sa.heads.2.key": {
+          "output_entropy": 3.181076,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9179,
+          "output_sparsity": 0.000294
+        },
+        "blocks.1.sa.heads.2.query": {
+          "output_entropy": 3.187558,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9197,
+          "output_sparsity": 0.00042
+        },
+        "blocks.1.sa.heads.2.dropout": {
+          "output_entropy": 3.877412,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7991,
+          "output_sparsity": 0.496094
+        },
+        "blocks.1.sa.heads.2.value": {
+          "output_entropy": 3.200223,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9234,
+          "output_sparsity": 0.00032
+        },
+        "blocks.1.sa.heads.2": {
+          "output_entropy": 3.22351,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9301,
+          "output_sparsity": 0.000488
+        },
+        "blocks.1.sa.heads.3.key": {
+          "output_entropy": 3.183138,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9185,
+          "output_sparsity": 0.000427
+        },
+        "blocks.1.sa.heads.3.query": {
+          "output_entropy": 3.170126,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9147,
+          "output_sparsity": 0.00037
+        },
+        "blocks.1.sa.heads.3.dropout": {
+          "output_entropy": 3.877553,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7992,
+          "output_sparsity": 0.496094
+        },
+        "blocks.1.sa.heads.3.value": {
+          "output_entropy": 3.184247,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9188,
+          "output_sparsity": 0.000328
+        },
+        "blocks.1.sa.heads.3": {
+          "output_entropy": 3.135091,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9046,
+          "output_sparsity": 0.000732
+        },
+        "blocks.1.sa.proj": {
+          "output_entropy": 4.522915,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9322,
+          "output_sparsity": 0.002455
+        },
+        "blocks.1.sa.dropout": {
+          "output_entropy": 4.522915,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9322,
+          "output_sparsity": 0.002455
+        },
+        "blocks.1.sa": {
+          "output_entropy": 4.522915,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9322,
+          "output_sparsity": 0.002455
+        },
+        "blocks.2.sa.heads.0.key": {
+          "output_entropy": 3.184066,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9187,
+          "output_sparsity": 0.000309
+        },
+        "blocks.2.sa.heads.0.query": {
+          "output_entropy": 3.207287,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9254,
+          "output_sparsity": 0.000278
+        },
+        "blocks.2.sa.heads.0.dropout": {
+          "output_entropy": 3.877328,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7991,
+          "output_sparsity": 0.496094
+        },
+        "blocks.2.sa.heads.0.value": {
+          "output_entropy": 3.212322,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9269,
+          "output_sparsity": 0.000309
+        },
+        "blocks.2.sa.heads.0": {
+          "output_entropy": 3.227099,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9311,
+          "output_sparsity": 0.000298
+        },
+        "blocks.2.sa.heads.1.key": {
+          "output_entropy": 3.2007,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9235,
+          "output_sparsity": 0.000366
+        },
+        "blocks.2.sa.heads.1.query": {
+          "output_entropy": 3.181399,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.918,
+          "output_sparsity": 0.00034
+        },
+        "blocks.2.sa.heads.1.dropout": {
+          "output_entropy": 3.877718,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7992,
+          "output_sparsity": 0.496094
+        },
+        "blocks.2.sa.heads.1.value": {
+          "output_entropy": 3.157395,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.911,
+          "output_sparsity": 0.000309
+        },
+        "blocks.2.sa.heads.1": {
+          "output_entropy": 3.112295,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.898,
+          "output_sparsity": 0.000519
+        },
+        "blocks.2.sa.heads.2.key": {
+          "output_entropy": 3.194886,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9218,
+          "output_sparsity": 0.000347
+        },
+        "blocks.2.sa.heads.2.query": {
+          "output_entropy": 3.183236,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9185,
+          "output_sparsity": 0.000401
+        },
+        "blocks.2.sa.heads.2.dropout": {
+          "output_entropy": 3.877789,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7992,
+          "output_sparsity": 0.496094
+        },
+        "blocks.2.sa.heads.2.value": {
+          "output_entropy": 3.215544,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9278,
+          "output_sparsity": 0.000256
+        },
+        "blocks.2.sa.heads.2": {
+          "output_entropy": 3.233639,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.933,
+          "output_sparsity": 0.000362
+        },
+        "blocks.2.sa.heads.3.key": {
+          "output_entropy": 3.198552,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9229,
+          "output_sparsity": 0.000301
+        },
+        "blocks.2.sa.heads.3.query": {
+          "output_entropy": 3.187881,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9198,
+          "output_sparsity": 0.000298
+        },
+        "blocks.2.sa.heads.3.dropout": {
+          "output_entropy": 3.877385,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7991,
+          "output_sparsity": 0.496094
+        },
+        "blocks.2.sa.heads.3.value": {
+          "output_entropy": 3.188611,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.92,
+          "output_sparsity": 0.000381
+        },
+        "blocks.2.sa.heads.3": {
+          "output_entropy": 3.164507,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9131,
+          "output_sparsity": 0.000393
+        },
+        "blocks.2.sa.proj": {
+          "output_entropy": 4.561012,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.94,
+          "output_sparsity": 0.002063
+        },
+        "blocks.2.sa.dropout": {
+          "output_entropy": 4.561012,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.94,
+          "output_sparsity": 0.002063
+        },
+        "blocks.2.sa": {
+          "output_entropy": 4.561012,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.94,
+          "output_sparsity": 0.002063
+        },
+        "blocks.3.sa.heads.0.key": {
+          "output_entropy": 3.205534,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9249,
+          "output_sparsity": 0.000431
+        },
+        "blocks.3.sa.heads.0.query": {
+          "output_entropy": 3.167529,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.914,
+          "output_sparsity": 0.000404
+        },
+        "blocks.3.sa.heads.0.dropout": {
+          "output_entropy": 3.8779,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7992,
+          "output_sparsity": 0.496094
+        },
+        "blocks.3.sa.heads.0.value": {
+          "output_entropy": 3.184833,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9189,
+          "output_sparsity": 0.00034
+        },
+        "blocks.3.sa.heads.0": {
+          "output_entropy": 3.158062,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9112,
+          "output_sparsity": 0.00045
+        },
+        "blocks.3.sa.heads.1.key": {
+          "output_entropy": 3.150491,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.909,
+          "output_sparsity": 0.00032
+        },
+        "blocks.3.sa.heads.1.query": {
+          "output_entropy": 3.187234,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9196,
+          "output_sparsity": 0.000244
+        },
+        "blocks.3.sa.heads.1.dropout": {
+          "output_entropy": 3.877514,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7992,
+          "output_sparsity": 0.496094
+        },
+        "blocks.3.sa.heads.1.value": {
+          "output_entropy": 3.193485,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9214,
+          "output_sparsity": 0.000423
+        },
+        "blocks.3.sa.heads.1": {
+          "output_entropy": 3.164679,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9131,
+          "output_sparsity": 0.000568
+        },
+        "blocks.3.sa.heads.2.key": {
+          "output_entropy": 3.191374,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9208,
+          "output_sparsity": 0.000305
+        },
+        "blocks.3.sa.heads.2.query": {
+          "output_entropy": 3.16453,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9131,
+          "output_sparsity": 0.000393
+        },
+        "blocks.3.sa.heads.2.dropout": {
+          "output_entropy": 3.877852,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7992,
+          "output_sparsity": 0.496094
+        },
+        "blocks.3.sa.heads.2.value": {
+          "output_entropy": 3.173851,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9158,
+          "output_sparsity": 0.00034
+        },
+        "blocks.3.sa.heads.2": {
+          "output_entropy": 3.12439,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9015,
+          "output_sparsity": 0.000412
+        },
+        "blocks.3.sa.heads.3.key": {
+          "output_entropy": 3.17469,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.916,
+          "output_sparsity": 0.000313
+        },
+        "blocks.3.sa.heads.3.query": {
+          "output_entropy": 3.168332,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9142,
+          "output_sparsity": 0.000347
+        },
+        "blocks.3.sa.heads.3.dropout": {
+          "output_entropy": 3.87786,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.7992,
+          "output_sparsity": 0.496094
+        },
+        "blocks.3.sa.heads.3.value": {
+          "output_entropy": 3.220544,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9293,
+          "output_sparsity": 0.000275
+        },
+        "blocks.3.sa.heads.3": {
+          "output_entropy": 3.260932,
+          "max_possible_entropy": 3.465736,
+          "entropy_ratio": 0.9409,
+          "output_sparsity": 0.000225
+        },
+        "blocks.3.sa.proj": {
+          "output_entropy": 4.607209,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9495,
+          "output_sparsity": 0.001639
+        },
+        "blocks.3.sa.dropout": {
+          "output_entropy": 4.607209,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9495,
+          "output_sparsity": 0.001639
+        },
+        "blocks.3.sa": {
+          "output_entropy": 4.607209,
+          "max_possible_entropy": 4.85203,
+          "entropy_ratio": 0.9495,
+          "output_sparsity": 0.001639
+        }
+      },
+      "memory": {
+        "process_rss_mb": 688.58,
+        "process_vms_mb": 403204.31
+      },
+      "system": {
+        "cpu_percent": 20.0,
+        "ram_total_gb": 32.0,
+        "ram_used_gb": 16.68,
+        "ram_percent": 58.8
+      },
+      "profiler": {
+        "total_cpu_time_ms": 25125.768,
+        "total_cuda_time_ms": 0.0,
+        "forward_time_ms": 5952.755,
+        "backward_time_ms": 9767.982,
+        "fwd_bwd_ratio": 0.6094,
+        "num_unique_ops": 110,
+        "top_operations": [
+          {
+            "name": "model_forward",
+            "calls": 1,
+            "cpu_time_us": 5570950.341,
+            "cpu_time_ms": 5570.95,
+            "avg_cpu_us": 5570950.3,
+            "cpu_mem_bytes": 128
+          },
+          {
+            "name": "model_backward",
+            "calls": 1,
+            "cpu_time_us": 2498164.574,
+            "cpu_time_ms": 2498.165,
+            "avg_cpu_us": 2498164.6,
+            "cpu_mem_bytes": -128
+          },
+          {
+            "name": "autograd::engine::evaluate_function: NativeLayerNormBackward0",
+            "calls": 9,
+            "cpu_time_us": 864960.6030000001,
+            "cpu_time_ms": 864.961,
+            "avg_cpu_us": 96106.7
+          },
+          {
+            "name": "NativeLayerNormBackward0",
+            "calls": 9,
+            "cpu_time_us": 864743.8939999994,
+            "cpu_time_ms": 864.744,
+            "avg_cpu_us": 96082.7
+          },
+          {
+            "name": "aten::native_layer_norm_backward",
+            "calls": 9,
+            "cpu_time_us": 864654.7679999983,
+            "cpu_time_ms": 864.655,
+            "avg_cpu_us": 96072.8
+          },
+          {
+            "name": "aten::item",
+            "calls": 1060,
+            "cpu_time_us": 789389.385999998,
+            "cpu_time_ms": 789.389,
+            "avg_cpu_us": 744.7
+          },
+          {
+            "name": "aten::_local_scalar_dense",
+            "calls": 1060,
+            "cpu_time_us": 788015.2789999963,
+            "cpu_time_ms": 788.015,
+            "avg_cpu_us": 743.4
+          },
+          {
+            "name": "aten::mean",
+            "calls": 568,
+            "cpu_time_us": 747651.2720000021,
+            "cpu_time_ms": 747.651,
+            "avg_cpu_us": 1316.3
+          },
+          {
+            "name": "aten::cross_entropy_loss",
+            "calls": 1,
+            "cpu_time_us": 734333.1219999995,
+            "cpu_time_ms": 734.333,
+            "avg_cpu_us": 734333.1
+          },
+          {
+            "name": "aten::std",
+            "calls": 96,
+            "cpu_time_us": 682758.1130000023,
+            "cpu_time_ms": 682.758,
+            "avg_cpu_us": 7112.1
+          },
+          {
+            "name": "autograd::engine::evaluate_function: LinearBackward0",
+            "calls": 61,
+            "cpu_time_us": 590961.1649999982,
+            "cpu_time_ms": 590.961,
+            "avg_cpu_us": 9687.9
+          },
+          {
+            "name": "LinearBackward0",
+            "calls": 61,
+            "cpu_time_us": 590249.2030000007,
+            "cpu_time_ms": 590.249,
+            "avg_cpu_us": 9676.2
+          },
+          {
+            "name": "aten::linear_backward",
+            "calls": 61,
+            "cpu_time_us": 590039.2050000038,
+            "cpu_time_ms": 590.039,
+            "avg_cpu_us": 9672.8
+          },
+          {
+            "name": "aten::nll_loss_nd",
+            "calls": 1,
+            "cpu_time_us": 381896.8479999993,
+            "cpu_time_ms": 381.897,
+            "avg_cpu_us": 381896.8
+          },
+          {
+            "name": "aten::nll_loss",
+            "calls": 1,
+            "cpu_time_us": 381848.22300000023,
+            "cpu_time_ms": 381.848,
+            "avg_cpu_us": 381848.2
+          },
+          {
+            "name": "aten::nll_loss_forward",
+            "calls": 1,
+            "cpu_time_us": 381804.63900000043,
+            "cpu_time_ms": 381.805,
+            "avg_cpu_us": 381804.6
+          },
+          {
+            "name": "aten::log_softmax",
+            "calls": 1,
+            "cpu_time_us": 352354.23199999984,
+            "cpu_time_ms": 352.354,
+            "avg_cpu_us": 352354.2
+          },
+          {
+            "name": "aten::_log_softmax",
+            "calls": 1,
+            "cpu_time_us": 352344.93900000025,
+            "cpu_time_ms": 352.345,
+            "avg_cpu_us": 352344.9
+          },
+          {
+            "name": "aten::sum",
+            "calls": 185,
+            "cpu_time_us": 339649.18300000066,
+            "cpu_time_ms": 339.649,
+            "avg_cpu_us": 1835.9
+          },
+          {
+            "name": "aten::linear",
+            "calls": 61,
+            "cpu_time_us": 324432.5329999961,
+            "cpu_time_ms": 324.433,
+            "avg_cpu_us": 5318.6
+          }
+        ],
+        "operation_categories": {
+          "forward_pass": {
+            "cpu_time_ms": 5570.95,
+            "cuda_time_ms": 0.0,
+            "calls": 1,
+            "pct_cpu": 22.17
+          },
+          "embedding": {
+            "cpu_time_ms": 1138.076,
+            "cuda_time_ms": 0.0,
+            "calls": 10,
+            "pct_cpu": 4.53
+          },
+          "other": {
+            "cpu_time_ms": 5806.826,
+            "cuda_time_ms": 0.0,
+            "calls": 13119,
+            "pct_cpu": 23.11
+          },
+          "normalization": {
+            "cpu_time_ms": 2619.067,
+            "cuda_time_ms": 0.0,
+            "calls": 45,
+            "pct_cpu": 10.42
+          },
+          "matrix_ops": {
+            "cpu_time_ms": 2535.145,
+            "cuda_time_ms": 0.0,
+            "calls": 436,
+            "pct_cpu": 10.09
+          },
+          "softmax": {
+            "cpu_time_ms": 1961.294,
+            "cuda_time_ms": 0.0,
+            "calls": 85,
+            "pct_cpu": 7.81
+          },
+          "dropout": {
+            "cpu_time_ms": 218.187,
+            "cuda_time_ms": 0.0,
+            "calls": 24,
+            "pct_cpu": 0.87
+          },
+          "activation_fn": {
+            "cpu_time_ms": 121.004,
+            "cuda_time_ms": 0.0,
+            "calls": 12,
+            "pct_cpu": 0.48
+          },
+          "loss": {
+            "cpu_time_ms": 2439.374,
+            "cuda_time_ms": 0.0,
+            "calls": 7,
+            "pct_cpu": 9.71
+          },
+          "backward_pass": {
+            "cpu_time_ms": 2715.846,
+            "cuda_time_ms": 0.0,
+            "calls": 685,
+            "pct_cpu": 10.81
+          }
+        }
+      },
+      "log_counts": {
+        "console": 4,
+        "error": 0
+      }
+    }
+  ],
+  "console_logs": [
+    {
+      "ts": "2026-02-21T14:29:20.955239",
+      "level": "INFO",
+      "msg": "Initialized | project=mini-gpt-experiment | run=childSpeech_128emb_4L_4H | device=cpu",
+      "module": "observer",
+      "lineno": 217
+    },
+    {
+      "ts": "2026-02-21T14:29:20.955815",
+      "level": "INFO",
+      "msg": "Hyperparameters logged: ['dataset', 'batch_size', 'block_size', 'max_iters', 'eval_interval', 'learning_rate', 'n_embd', 'n_head', 'n_layer', 'dropout', 'use_bias_in_attention', 'use_skip_connections', 'seed', 'device', 'eval_iters', 'optimizer']",
+      "module": "observer",
+      "lineno": 229
+    },
+    {
+      "ts": "2026-02-21T14:29:21.188659",
+      "level": "INFO",
+      "msg": "Model registered | 818,472 params (0.82M) | 72 param layers",
+      "module": "observer",
+      "lineno": 275
+    },
+    {
+      "ts": "2026-02-21T14:29:21.860715",
+      "level": "INFO",
+      "msg": "--- Epoch 0 started ---",
+      "module": "observer",
+      "lineno": 399
+    },
+    {
+      "ts": "2026-02-21T14:33:38.272613",
+      "level": "INFO",
+      "msg": "--- Epoch 0 done | 254.73s | loss=3.739521 ---",
+      "module": "observer",
+      "lineno": 516
+    }
+  ],
+  "error_logs": [],
+  "summary": {
+    "total_epochs": 1,
+    "total_duration_s": 254.73,
+    "loss_trend": {
+      "first": 3.739521,
+      "last": 3.739521,
+      "best": 3.739521,
+      "worst": 3.739521,
+      "delta": 0.0,
+      "improved": false
+    },
+    "gradient_health": {
+      "epochs_with_issues": 0,
+      "total_issues": 0
+    },
+    "avg_tokens_per_sec": 32.16,
+    "profiler_highlight": {
+      "fwd_bwd_ratio": 0.6094,
+      "top_op": "model_forward",
+      "top_op_pct": 22.17
+    }
+  }
+}

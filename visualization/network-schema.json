@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "network-schema.json",
+  "title": "Fully Connected Neural Network",
+  "description": "Describes the architecture of a fully connected (dense) neural network. Connections between adjacent layers are implicit — every neuron in layer N connects to every neuron in layer N+1.",
+  "type": "object",
+  "required": ["name", "layers"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for this network."
+    },
+    "layers": {
+      "type": "array",
+      "description": "Ordered list of layers from input to output. Must have at least 2 entries.",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "size"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable unique identifier for this layer."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of neurons in this layer."
+          }
+        }
+      }
+    }
+  }
+}
