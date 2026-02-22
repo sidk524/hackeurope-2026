@@ -1096,6 +1096,8 @@ type BottomTerminalPanelProps = {
   onToggleFollow: () => void;
   consoleBodyRef: React.RefObject<HTMLDivElement | null>;
   onConsoleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
+  /** Called when the panel's rendered height changes (e.g. tab switch, resize) */
+  onPanelHeightChange?: (heightPx: number) => void;
   /** Agent */
   sessionId: number | null;
   projectId: number | null;
@@ -1113,11 +1115,24 @@ function BottomTerminalPanel({
   onToggleFollow,
   consoleBodyRef,
   onConsoleScroll,
+  onPanelHeightChange,
   sessionId,
   projectId,
 }: BottomTerminalPanelProps) {
   // Tab state: "logs" (left) or "agent" (right)
   const [activeTab, setActiveTab] = useState<"logs" | "agent">("logs");
+  const panelRootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!onPanelHeightChange || !panelRootRef.current) return;
+    const el = panelRootRef.current;
+    const ro = new ResizeObserver(() => {
+      onPanelHeightChange(el.getBoundingClientRect().height);
+    });
+    ro.observe(el);
+    onPanelHeightChange(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, [onPanelHeightChange]);
 
   // ── Agent state ──
   const [input, setInput] = useState("");
@@ -1190,7 +1205,7 @@ function BottomTerminalPanel({
   const hasErrors = logs.some((l) => l.kind === "error" || l.level === "ERROR");
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col shadow-[0_-4px_24px_rgba(0,0,0,0.4)]">
+    <div ref={panelRootRef} className="fixed bottom-0 left-0 right-0 z-50 flex flex-col shadow-[0_-4px_24px_rgba(0,0,0,0.4)]">
       {/* Drag handle */}
       <div
         onMouseDown={onDragStart}

@@ -120,7 +120,12 @@ export default function ProjectsClient({
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [consoleHeight, setConsoleHeight] = useState(208); // px
   const [consoleFollow, setConsoleFollow] = useState(true);
+  const [panelHeightPx, setPanelHeightPx] = useState(0);
   const consoleBodyRef = useRef<HTMLDivElement>(null);
+
+  const handlePanelHeightChange = useCallback((heightPx: number) => {
+    setPanelHeightPx(heightPx);
+  }, []);
   const isDragging = useRef(false);
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(0);
@@ -376,9 +381,20 @@ export default function ProjectsClient({
       : getRelativeRefreshLabel(lastRefreshAt, new Date());
 
 
+  // Button sits just above the console panel; use measured height when available
+  const BUTTON_GAP_PX = 12;
+  const CONSOLE_CHROME_PX = 40;
+  const fallbackBottomPx = isConsoleOpen
+    ? CONSOLE_CHROME_PX + consoleHeight + BUTTON_GAP_PX
+    : CONSOLE_CHROME_PX + BUTTON_GAP_PX;
+  const refreshBottomPx = panelHeightPx > 0 ? panelHeightPx + BUTTON_GAP_PX : fallbackBottomPx;
+
   return (
     <div className={`${fontClassName} min-h-screen bg-zinc-900 text-zinc-100`} style={{ paddingBottom: isConsoleOpen ? `${consoleHeight + 40}px` : "3rem" }}>
-      <div className="group fixed bottom-6 right-6 z-50 flex items-center gap-2">
+      <div
+        className="group fixed right-6 z-60 flex items-center gap-2 transition-[bottom] duration-200"
+        style={{ bottom: `${refreshBottomPx}px` }}
+      >
         {lastRefreshLabel ? (
           <span className="text-xs text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
             {lastRefreshLabel}
@@ -722,6 +738,7 @@ export default function ProjectsClient({
           if (!atBottom && consoleFollow) setConsoleFollow(false);
           if (atBottom && !consoleFollow) setConsoleFollow(true);
         }}
+        onPanelHeightChange={handlePanelHeightChange}
         sessionId={selectedSessionId}
         projectId={selectedProjectId}
       />
