@@ -349,7 +349,7 @@ export default function ProjectsClient({
         </button>
       </div>
       <div className="relative isolate overflow-hidden">
-        <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 pt-10">
+        <header className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center justify-between gap-4 px-6 pt-10">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sm font-bold uppercase text-zinc-900">
               A
@@ -373,8 +373,9 @@ export default function ProjectsClient({
             </button>
           </div>
         </header>
-        <div className="mx-auto w-full max-w-6xl px-6 pb-12 pt-10">
-          <div className="grid gap-6">
+        <div className="mx-auto w-full max-w-[1700px] px-6 pb-12 pt-10">
+          <div className="grid gap-6 xl:grid-cols-12">
+            <div className="space-y-6 xl:col-span-3">
             <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -415,13 +416,7 @@ export default function ProjectsClient({
                     No projects yet. Click "New project" to create one.
                   </div>
                 ) : (
-                  <div
-                    className={`mt-4 grid gap-3 ${
-                      projects.length > 3
-                        ? "dark-scrollbar max-h-80 overflow-y-auto pr-2"
-                        : ""
-                    }`}
-                  >
+                  <div className="mt-4 grid gap-3">
                     {isProjectsLoading ? (
                       <div className="py-4 text-center text-sm text-zinc-500">
                         Loading projects…
@@ -505,12 +500,14 @@ export default function ProjectsClient({
                 </p>
               )}
             </section>
-
-            <ThreeScene />
             <PipelineSuggestions
               selectedProject={selectedProject}
               onSuggestionClick={handleSuggestionClick}
             />
+            <ProjectTrendChart projectId={selectedProjectId} />
+            </div>
+            <div className="space-y-6 xl:col-span-5">
+            <ThreeScene model={modelForPanel ?? null} />
             <SessionList
               selectedProject={selectedProject}
               sessions={sessionsForProject}
@@ -518,8 +515,9 @@ export default function ProjectsClient({
               selectedSessionId={selectedSessionId}
               onSelectSession={setSelectedSessionId}
             />
-            <ProjectTrendChart projectId={selectedProjectId} />
             <TrainSessionPanel session={activeSession} />
+            </div>
+            <div className="space-y-6 xl:col-span-4">
             <ModelPanel session={activeSession} model={modelForPanel} />
             <TrainStepList
               session={activeSession}
@@ -557,6 +555,7 @@ export default function ProjectsClient({
                 <p className="mt-3 text-xs text-red-300">{claudeError}</p>
               ) : null}
             </section>
+            </div>
           </div>
         </div>
       </div>
