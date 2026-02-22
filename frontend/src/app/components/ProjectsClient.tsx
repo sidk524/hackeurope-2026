@@ -1,20 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { sendClaudePrompt } from "@/actions/agent";
-import type { Project } from "@/lib/client";
-import type { TrainSession as ApiTrainSession } from "@/lib/client";
+import type { TrainSession as ApiTrainSession, Project } from "@/lib/client";
 import {
-  getProjectsProjectsGetOptions,
   createProjectProjectsPostMutation,
-  getProjectsProjectsGetQueryKey,
-  getTrainSessionsSessionsProjectProjectIdGetOptions,
   getModelSessionsSessionIdModelGetOptions,
-  getStepsSessionsSessionIdStepGetOptions,
-  getSessionLogsSessionsSessionIdLogsGetOptions,
+  getProjectsProjectsGetOptions,
+  getProjectsProjectsGetQueryKey,
   getSessionHealthDiagnosticsSessionsSessionIdHealthGetOptions,
+  getSessionLogsSessionsSessionIdLogsGetOptions,
+  getStepsSessionsSessionIdStepGetOptions,
+  getTrainSessionsSessionsProjectProjectIdGetOptions,
 } from "@/lib/client/@tanstack/react-query.gen";
+import { useEventSource } from "@/lib/use-event-source";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import type { TrainSession as PanelTrainSession } from "./ProjectTrainingPanels";
 import {
   ModelPanel,
   SessionIssuesPanel,
@@ -24,8 +24,6 @@ import {
   TrainStepList,
 } from "./ProjectTrainingPanels";
 import ProjectTrendChart from "./ProjectTrendChart";
-import type { TrainSession as PanelTrainSession } from "./ProjectTrainingPanels";
-import { useEventSource } from "@/lib/use-event-source";
 
 function mapApiSessionToPanel(api: ApiTrainSession): PanelTrainSession {
   return {
@@ -44,6 +42,12 @@ function mapApiSessionToPanel(api: ApiTrainSession): PanelTrainSession {
   };
 }
 
+import AgentChatPanel from "./AgentChatPanel";
+import ProactiveInsightBanner, {
+  useProactiveInsights,
+  type InsightItem,
+} from "./ProactiveInsightBanner";
+import SustainabilityPanel from "./SustainabilityPanel";
 import ThreeScene from "./ThreeScene";
 
 const SELECTED_PROJECT_ID_KEY = "atlas-selected-project-id";
@@ -96,17 +100,24 @@ export default function ProjectsClient({
   fontClassName,
 }: ProjectsClientProps) {
   const queryClient = useQueryClient();
+  const { insights, addInsight, dismiss: dismissInsight } =
+    useProactiveInsights();
+
+  const handleInsightEvent = (eventType: string, data: Record<string, unknown>) => {
+    if (eventType === "agent.insight") {
+      addInsight(data as { severity?: string; title?: string; body?: string; is_revision?: boolean });
+    }
+  };
+
   useEventSource({
     projectId: null,
     enabled: true,
+    onEvent: handleInsightEvent,
   });
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     getStoredProjectId
   );
   const [isProjectsOpen, setIsProjectsOpen] = useState(true);
-  const [claudeReply, setClaudeReply] = useState<string>("");
-  const [claudeError, setClaudeError] = useState<string>("");
-  const [isClaudeLoading, setIsClaudeLoading] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
     null
   );
@@ -308,24 +319,6 @@ export default function ProjectsClient({
       ? null
       : getRelativeRefreshLabel(lastRefreshAt, new Date());
 
-  const handleClaudeTest = async () => {
-    setClaudeError("");
-    setClaudeReply("");
-    setIsClaudeLoading(true);
-
-    try {
-      const result = await sendClaudePrompt(
-        "What should I search for to find the latest developments in renewable energy?"
-      );
-      setClaudeReply(result.text || "No response text returned.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Claude request failed";
-      setClaudeError(message);
-  } finally {
-      setIsClaudeLoading(false);
-    }
-  };
 
   return (
     <div className={`${fontClassName} min-h-screen bg-zinc-900 text-zinc-100`}>
@@ -386,6 +379,17 @@ export default function ProjectsClient({
           </div>
         </header>
         <div className="mx-auto w-full max-w-[1700px] px-6 pb-12 pt-10">
+          {/* Proactive insight banners */}
+          <div className="mb-4">
+            <ProactiveInsightBanner
+              insights={insights}
+              onDismiss={dismissInsight}
+              onAskAtlas={(insight: InsightItem) => {
+                // Open agent chat is handled by the AgentChatPanel toggle
+                // For now, insights are clickable
+              }}
+            />
+          </div>
           <div className="grid gap-6 xl:grid-cols-12">
             <div className="space-y-6 xl:col-span-3">
             <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
@@ -542,40 +546,16 @@ export default function ProjectsClient({
               health={healthData ?? null}
               healthLoading={isHealthLoading}
             />
-            <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                    Claude test
-                  </p>
-                  <h2 className="text-lg font-semibold">
-                    Test server action
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleClaudeTest}
-                  disabled={isClaudeLoading}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    isClaudeLoading
-                      ? "cursor-not-allowed bg-zinc-800 text-zinc-400"
-                      : "bg-white text-zinc-900 hover:bg-zinc-100"
-                  }`}
-                >
-                  {isClaudeLoading ? "Testing..." : "Test Claude"}
-                </button>
-              </div>
-              <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-200">
-                {claudeReply || "No response yet."}
-              </div>
-              {claudeError ? (
-                <p className="mt-3 text-xs text-red-300">{claudeError}</p>
-              ) : null}
-            </section>
+            <SustainabilityPanel sessionId={selectedSessionId} />
             </div>
           </div>
         </div>
       </div>
+      {/* Agent chat panel */}
+      <AgentChatPanel
+        sessionId={selectedSessionId}
+        projectId={selectedProjectId}
+      />
     </div>
   );
 }

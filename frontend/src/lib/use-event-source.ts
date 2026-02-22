@@ -1,5 +1,5 @@
-import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -41,6 +41,7 @@ const INVALIDATION_MAP: Record<string, string[]> = {
     "getTrainSessionSessionsSessionIdGet",
     "getProjectsProjectsGet",
   ],
+  "agent.insight": [],
 };
 
 const EVENT_TYPES = Object.keys(INVALIDATION_MAP);
