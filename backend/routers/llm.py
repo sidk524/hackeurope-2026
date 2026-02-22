@@ -1,13 +1,16 @@
 import os
 from typing import Any
 
-import httpx
+import openai
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.concurrency import iterate_in_threadpool
 from fastapi.responses import StreamingResponse
+from openai import OpenAI
 from pydantic import BaseModel, ConfigDict
 from dotenv import load_dotenv
+from starlette.concurrency import run_in_threadpool
 
-API_URL = "https://hackeurope.crusoecloud.com/v1/chat/completions"
+API_BASE_URL = "https://hackeurope.crusoecloud.com/v1/"
 DEFAULT_MODEL = "NVFP4/Qwen3-235B-A22B-Instruct-2507-FP4"
 
 load_dotenv()
@@ -38,51 +41,52 @@ def _get_api_key() -> str:
     return api_key
 
 
+def _get_client() -> OpenAI:
+    return OpenAI(
+        base_url=API_BASE_URL,
+        api_key=_get_api_key(),
+    )
+
+
 @router.post("/chat/completions")
 async def create_chat_completion(body: ChatCompletionRequest, request: Request):
-    api_key = _get_api_key()
     payload: dict[str, Any] = body.model_dump(exclude_none=True)
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Accept": "text/event-stream",
-    }
-
-    client = httpx.AsyncClient(timeout=None)
+    client = _get_client()
     try:
-        upstream_request = client.build_request(
-            "POST",
-            API_URL,
-            headers=headers,
-            json=payload,
+        upstream_response = await run_in_threadpool(
+            lambda: client.chat.completions.with_streaming_response.create(**payload)
         )
-        upstream_response = await client.send(upstream_request, stream=True)
-    except httpx.RequestError as exc:
-        await client.aclose()
+    except openai.APIConnectionError as exc:
         raise HTTPException(status_code=502, detail=f"Upstream request failed: {exc}") from exc
+    except openai.RateLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except openai.APIStatusError as exc:
+        detail = getattr(exc.response, "text", None) or str(exc)
+        raise HTTPException(status_code=exc.status_code, detail=detail) from exc
+    except openai.APIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    if upstream_response.status_code >= 400:
-        error_body = await upstream_response.aread()
-        await upstream_response.aclose()
-        await client.aclose()
-        detail = error_body.decode("utf-8", errors="replace")
-        raise HTTPException(status_code=upstream_response.status_code, detail=detail)
+    def _sync_stream():
+        with upstream_response as stream:
+            for chunk in stream.iter_bytes():
+                yield chunk
 
     async def _stream():
+        sync_iter = _sync_stream()
         try:
-            async for chunk in upstream_response.aiter_raw():
+            async for chunk in iterate_in_threadpool(sync_iter):
                 if await request.is_disconnected():
                     break
                 if chunk:
                     yield chunk
         finally:
-            await upstream_response.aclose()
-            await client.aclose()
+            sync_iter.close()
+
+    media_type = "text/event-stream" if payload.get("stream") else "application/json"
 
     return StreamingResponse(
         _stream(),
-        media_type="text/event-stream",
+        media_type=media_type,
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",

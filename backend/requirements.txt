@@ -2,3 +2,4 @@ fastapi[standard]==0.129.1
 sqlmodel==0.0.35
 fastmcp>=2.0.0
 python-dotenv==1.0.1
+openai>=1.0.0
