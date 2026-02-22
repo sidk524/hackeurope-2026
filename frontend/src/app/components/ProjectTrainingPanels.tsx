@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Model, TrainStep } from "@/lib/client";
+import type { HealthOut, IssueOut, Model, TrainStep } from "@/lib/client";
 
 type TrainSession = {
   id: number;
@@ -615,11 +615,117 @@ function SessionLogList({ session, logs, logsLoading }: SessionLogListProps) {
   );
 }
 
+type SessionIssuesPanelProps = {
+  session: TrainSession | null;
+  health: HealthOut | null;
+  healthLoading: boolean;
+};
+
+function severityBadgeClass(severity: IssueOut["severity"]): string {
+  switch (severity) {
+    case "critical":
+      return "border-red-500/60 bg-red-950/40 text-red-300";
+    case "warning":
+      return "border-amber-500/60 bg-amber-950/40 text-amber-300";
+    case "info":
+    default:
+      return "border-sky-500/60 bg-sky-950/40 text-sky-300";
+  }
+}
+
+function SessionIssuesPanel({
+  session,
+  health,
+  healthLoading,
+}: SessionIssuesPanelProps) {
+  const issueCount = health?.issues?.length ?? 0;
+  const badgeLabel =
+    health != null
+      ? `${health.health_score} · ${issueCount} issue${issueCount !== 1 ? "s" : ""}`
+      : "—";
+
+  return (
+    <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+            Run health
+          </p>
+          <h2 className="text-lg font-semibold">Session issues</h2>
+        </div>
+        <span className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-400">
+          {badgeLabel}
+        </span>
+      </div>
+      {!session ? (
+        <p className="mt-4 text-xs text-zinc-500">
+          Select a run to view issues and suggested fixes.
+        </p>
+      ) : healthLoading ? (
+        <p className="mt-4 text-xs text-zinc-500">Loading…</p>
+      ) : health == null ? (
+        <p className="mt-4 text-xs text-zinc-500">
+          No health data available for this session.
+        </p>
+      ) : issueCount === 0 ? (
+        <p className="mt-4 text-sm text-zinc-400">
+          No issues reported. Health score: {health.health_score}
+        </p>
+      ) : (
+        <div className="dark-scrollbar mt-4 grid max-h-96 gap-3 overflow-y-auto pr-2">
+          {health.issues.map((issue, idx) => (
+            <div
+              key={issue.id ?? idx}
+              className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 text-sm"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider ${severityBadgeClass(issue.severity)}`}
+                >
+                  {issue.severity}
+                </span>
+                <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs text-zinc-400">
+                  {issue.category}
+                </span>
+                {issue.epoch_index != null ? (
+                  <span className="text-xs text-zinc-500">
+                    Epoch {issue.epoch_index}
+                  </span>
+                ) : null}
+                {issue.layer_id ? (
+                  <span className="font-mono text-xs text-zinc-500">
+                    {issue.layer_id}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-2 font-semibold text-zinc-100">{issue.title}</p>
+              {issue.description ? (
+                <p className="mt-1 text-xs text-zinc-400">{issue.description}</p>
+              ) : null}
+              {issue.suggestion ? (
+                <div className="mt-3 rounded-xl border border-emerald-800/60 bg-emerald-950/30 px-3 py-2">
+                  <p className="text-xs font-medium uppercase tracking-wider text-emerald-400/90">
+                    Suggested fix
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-200">
+                    {issue.suggestion}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export {
   SAMPLE_LOGS,
   SAMPLE_MODEL,
   SAMPLE_SESSIONS,
   ModelPanel,
+  SessionIssuesPanel,
   SessionList,
   SessionLogList,
   TrainSessionPanel,

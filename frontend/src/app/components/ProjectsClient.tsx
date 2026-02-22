@@ -13,9 +13,11 @@ import {
   getModelSessionsSessionIdModelGetOptions,
   getStepsSessionsSessionIdStepGetOptions,
   getSessionLogsSessionsSessionIdLogsGetOptions,
+  getSessionHealthDiagnosticsSessionsSessionIdHealthGetOptions,
 } from "@/lib/client/@tanstack/react-query.gen";
 import {
   ModelPanel,
+  SessionIssuesPanel,
   SessionList,
   SessionLogList,
   TrainSessionPanel,
@@ -248,6 +250,16 @@ export default function ProjectsClient({
         : false,
   });
 
+  const {
+    data: healthData,
+    isLoading: isHealthLoading,
+  } = useQuery({
+    ...getSessionHealthDiagnosticsSessionsSessionIdHealthGetOptions({
+      path: { session_id: sessionIdForModel ?? 0 },
+    }),
+    enabled: sessionIdForModel != null && activeSession?.status == "pending",
+  });
+
   const logsForPanel = useMemo(() => {
     return apiLogs.map((log) => ({
       id: log.id ?? 0,
@@ -310,7 +322,7 @@ export default function ProjectsClient({
       const message =
         error instanceof Error ? error.message : "Claude request failed";
       setClaudeError(message);
-    } finally {
+  } finally {
       setIsClaudeLoading(false);
     }
   };
@@ -525,6 +537,11 @@ export default function ProjectsClient({
               stepsLoading={isStepsLoading}
             />
             <SessionLogList session={activeSession} logs={logsForPanel} logsLoading={isLogsLoading} />
+            <SessionIssuesPanel
+              session={activeSession}
+              health={healthData ?? null}
+              healthLoading={isHealthLoading}
+            />
             <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
