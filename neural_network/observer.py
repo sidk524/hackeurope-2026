@@ -16,6 +16,7 @@ import logging
 import math
 import os
 import sys
+import threading
 import time
 import traceback
 from collections import defaultdict
@@ -48,6 +49,11 @@ class ObserverConfig:
     track_console_logs: bool = True
     track_error_logs: bool = True
     track_hyperparameters: bool = True
+    # Log batching (reduces backend spam): flush every N seconds or when buffer reaches max size
+    log_batch_interval_sec: float = 2.0
+    log_batch_max_size: int = 100
+    # Spam guard: drop new logs when pending buffer exceeds this (0 = no cap)
+    log_pending_cap: int = 500
 
     # Architecture visualization
     track_layer_graph: bool = True
@@ -78,7 +84,7 @@ class ObserverConfig:
     carbon_country_iso: str = "IRL"              # ISO 3166-1 alpha-3, used as fallback or for offline mode
 
     # Pending timeout (exponential backoff)
-    pending_timeout: float = 39.0  # seconds to wait before auto-stopping when session is pending
+    pending_timeout: float = 3_600  # seconds to wait before auto-stopping when session is pending
 
     # Log level for the observer's own logger
     log_level: int = logging.INFO
@@ -211,6 +217,23 @@ class Observer:
         self._carbon_prev_emissions: float = 0.0         # cumulative CO2 at previous flush
         self._carbon_prev_energy: float = 0.0            # cumulative energy at previous flush
 
+        # ── Log batching for backend (avoids per-line POST spam) ──
+        self._log_pending: List[Dict[str, Any]] = []     # list of {"entry": {...}, "kind": "console"|"error"}
+        self._log_pending_lock: threading.Lock = threading.Lock()
+        self._log_last_flush_time: float = time.time()
+        self._log_flush_stop: bool = False
+        self._log_flush_thread: Optional[threading.Thread] = None
+        self._closed: bool = False
+        if self.config.track_console_logs or self.config.track_error_logs:
+            interval = max(0.5, self.config.log_batch_interval_sec)
+            self._log_flush_thread = threading.Thread(
+                target=self._log_flush_loop,
+                args=(interval,),
+                daemon=True,
+                name="observer-log-flush",
+            )
+            self._log_flush_thread.start()
+
         # ── Observer logger ──
         self._log = logging.getLogger(f"observer.{self.run_id}")
         self._log.setLevel(self.config.log_level)
@@ -225,7 +248,7 @@ class Observer:
             h = _LogCaptureHandler(
                 self.console_logs,
                 logging.INFO,
-                on_emit=lambda e, k: self._push_single_log_to_backend(e, k),
+                on_emit=lambda e, k: self._enqueue_log_for_backend(e, k),
                 kind="console",
             )
             h.setFormatter(logging.Formatter("%(message)s"))
@@ -235,7 +258,7 @@ class Observer:
             h = _LogCaptureHandler(
                 self.error_logs,
                 logging.WARNING,
-                on_emit=lambda e, k: self._push_single_log_to_backend(e, k),
+                on_emit=lambda e, k: self._enqueue_log_for_backend(e, k),
                 kind="error",
             )
             h.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
@@ -301,34 +324,63 @@ class Observer:
             self._log.warning(f"Failed to register model in backend: {e}")
             raise e
 
-    def _push_single_log_to_backend(self, entry: Dict[str, Any], kind: Literal["console", "error"]) -> None:
-        """Push a single log entry to the backend in real time via POST /sessions/{id}/log."""
-        if self._backend_session_id is None:
+    def _log_flush_loop(self, interval_sec: float) -> None:
+        """Background thread: every interval_sec, flush pending logs to the backend."""
+        while not self._log_flush_stop:
+            time.sleep(interval_sec)
+            if self._log_flush_stop:
+                break
+            self._flush_log_batch_to_backend()
+
+    def _enqueue_log_for_backend(self, entry: Dict[str, Any], kind: Literal["console", "error"]) -> None:
+        """Enqueue a log for batched push; flush immediately when max size is reached."""
+        if self._closed or self._backend_session_id is None:
             return
         if kind == "console" and not self.config.track_console_logs:
             return
         if kind == "error" and not self.config.track_error_logs:
             return
-        payload = {
-            "ts": entry["ts"],
-            "level": entry["level"],
-            "msg": entry["msg"],
-            "module": entry.get("module", ""),
-            "lineno": entry.get("lineno", 0),
-            "kind": kind,
-        }
-        url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/log"
-        body = json.dumps(payload).encode("utf-8")
+        with self._log_pending_lock:
+            cap = self.config.log_pending_cap
+            if cap > 0 and len(self._log_pending) >= cap:
+                self._log_pending.pop(0)
+            self._log_pending.append({"entry": entry, "kind": kind})
+            size_ok = len(self._log_pending) >= self.config.log_batch_max_size
+        if size_ok:
+            self._flush_log_batch_to_backend()
+
+    def _flush_log_batch_to_backend(self) -> None:
+        """Send all pending log entries to the backend in one batch POST."""
+        if self._closed:
+            return
+        with self._log_pending_lock:
+            if not self._log_pending or self._backend_session_id is None:
+                return
+            batch = []
+            for item in self._log_pending:
+                e, kind = item["entry"], item["kind"]
+                batch.append({
+                    "ts": e["ts"],
+                    "level": e["level"],
+                    "msg": e["msg"],
+                    "module": e.get("module", ""),
+                    "lineno": e.get("lineno", 0),
+                    "kind": kind,
+                })
+            self._log_pending.clear()
+        self._log_last_flush_time = time.time()
+        url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/logs"
+        body = json.dumps({"logs": batch}).encode("utf-8")
         req = Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
         try:
-            with urlopen(req, timeout=10):
+            with urlopen(req, timeout=15):
                 pass
         except (HTTPError, URLError, OSError, json.JSONDecodeError) as e:
-            self._log.warning(f"Failed to push log to backend: {e}")
+            self._log.warning(f"Failed to push log batch to backend: {e}")
 
     def _register_backend_step(self, rec: Dict[str, Any]) -> None:
         """Register the current step record with the backend via POST /sessions/{id}/step."""
-        if self._backend_session_id is None:
+        if self._closed or self._backend_session_id is None:
             return
         payload = {
             "step_index": rec["step"],
@@ -716,6 +768,8 @@ class Observer:
 
     def _start_interval(self):
         """Internal: reset per-interval state (on first step or after flush)."""
+        if self._closed:
+            return
         self._interval_started = True
         self._step_start_time = time.time()
         self._step_batch_losses.clear()
@@ -770,6 +824,8 @@ class Observer:
         seq_length : int, optional
             Sequence length per sample (for token throughput).
         """
+        if self._closed:
+            return
         if not self._interval_started:
             self._start_interval()
 
@@ -800,6 +856,8 @@ class Observer:
         dict
             The complete step data record (also appended to self.step_data).
         """
+        if self._closed:
+            return {}
         if not self._interval_started:
             self._start_interval()
         duration = time.time() - self._step_start_time
@@ -935,7 +993,9 @@ class Observer:
         self.step_data.append(rec)
         self._log.info(f"Registering step {step_index} in backend")
         self._register_backend_step(rec)
-        self._await_backend_status(rec) # Poll the backend for the status of the session 
+        self._await_backend_status(rec)  # Poll the backend for the status of the session
+        if self._closed:
+            return rec
         self._interval_started = False
         self._start_interval()
 
@@ -948,6 +1008,8 @@ class Observer:
 
     def _poll_backend_status(self, rec: Dict[str, Any]) -> Optional[str]:
         """Poll the backend for the status of the session."""
+        if self._closed:
+            return "completed"  # exit wait loop without further network calls
         url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/status"
         req = Request(url, method="GET")
         with urlopen(req, timeout=10) as resp:
@@ -988,15 +1050,18 @@ class Observer:
         delay = 1.0
 
         while True:
+            if self._closed:
+                return
             status = self._poll_backend_status(rec)
             if status == "running":
+                self._log.info(f"Received go-ahead status for session {self._backend_session_id}, resuming training...")
                 return
             if status in ("completed", "stopped"):
-                self._log.info(f"Training {status}")
+                self._log.info(f"Training {status}, stopping...")
                 self.close()
                 return
             if status == "failed":
-                self._log.info("Training failed")
+                self._log.info("Training failed, stopping...")
                 self.close()
                 return
             if status in ("paused", "pending"):
@@ -1008,6 +1073,7 @@ class Observer:
                     self._save_checkpoint()
                     self._stop_backend_session()
                     self.close()
+                    sys.exit(1)
                     return
                 sleep_time = min(delay, self.config.pending_timeout - elapsed)
                 time.sleep(sleep_time)
@@ -1755,11 +1821,19 @@ class Observer:
     # ==================================================================
 
     def close(self):
-        """Finalize session metadata and remove log handlers. Flushes any pending steps."""
+        """Finalize session metadata and remove log handlers. Flushes any pending steps.
+        Once closed, the observer does nothing on any further method calls."""
+        if self._closed:
+            return
         if self._interval_started and (
             self._step_batch_losses or self._step_samples_processed or self._step_tokens_processed
         ):
             self.flush()
+        self._log_flush_stop = True
+        if self._log_flush_thread is not None:
+            self._log_flush_thread.join(timeout=self.config.log_batch_interval_sec + 1.0)
+            self._log_flush_thread = None
+        self._flush_log_batch_to_backend()
         for h in self._capture_handlers:
             logging.getLogger().removeHandler(h)
         self._capture_handlers.clear()
@@ -1774,6 +1848,7 @@ class Observer:
                 pass
             self._carbon_tracker = None
         self.session["ended_at"] = datetime.now().isoformat()
+        self._closed = True
         self._log.info("Observer closed.")
 
     def __enter__(self):

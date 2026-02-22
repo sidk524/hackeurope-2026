@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type SVGProps } from "react";
 import type { HealthOut, IssueOut, Model, TrainStep } from "@/lib/client";
 
 type TrainSession = {
@@ -238,9 +238,26 @@ function SessionList({
 
 type TrainSessionPanelProps = {
   session: TrainSession | null;
+  onResume?: (sessionId: number) => void;
+  onStop?: (sessionId: number) => void;
+  actionPending?: boolean;
 };
 
-function TrainSessionPanel({ session }: TrainSessionPanelProps) {
+const CONFIG_VISIBLE_INITIAL = 3;
+
+function TrainSessionPanel({
+  session,
+  onResume,
+  onStop,
+  actionPending = false,
+}: TrainSessionPanelProps) {
+  const isPending = session?.status === "pending";
+  const [configExpanded, setConfigExpanded] = useState(false);
+  const configEntries = session?.config ? Object.entries(session.config) : [];
+  const configVisibleCount = configExpanded ? configEntries.length : CONFIG_VISIBLE_INITIAL;
+  const configToShow = configEntries.slice(0, configVisibleCount);
+  const hasMoreConfig = configEntries.length > CONFIG_VISIBLE_INITIAL;
+
   return (
     <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -256,6 +273,33 @@ function TrainSessionPanel({ session }: TrainSessionPanelProps) {
       </div>
       {session ? (
         <div className="mt-4 grid gap-3 text-sm text-zinc-200">
+          {isPending && onResume && onStop ? (
+            <div className="rounded-2xl border border-red-500/50 bg-red-950/40 p-4 shadow-[0_0_20px_-2px_rgba(239,68,68,0.35)]">
+              <p className="text-sm text-red-100/95">
+                Issues detected. Please check the Session Issues panel to make an
+                informed decision on whether to resume or stop the training
+                process.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => onResume(session.id)}
+                  disabled={actionPending}
+                  className="rounded-full border border-emerald-600 bg-emerald-950/50 px-4 py-2 text-xs font-semibold text-emerald-300 transition hover:border-emerald-500 hover:bg-emerald-950/70 disabled:opacity-60"
+                >
+                  {actionPending ? "…" : "Resume"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStop(session.id)}
+                  disabled={actionPending}
+                  className="rounded-full border border-red-600/60 bg-red-950/30 px-4 py-2 text-xs font-semibold text-red-300 transition hover:border-red-500 hover:bg-red-950/50 disabled:opacity-60"
+                >
+                  {actionPending ? "…" : "Stop"}
+                </button>
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -284,26 +328,39 @@ function TrainSessionPanel({ session }: TrainSessionPanelProps) {
               <span>PyTorch {session.pytorchVersion}</span>
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-1">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
                 Config
               </p>
               <div className="mt-3 grid gap-2">
                 {session.config ? (
-                  Object.entries(session.config).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
-                    >
-                      <span className="uppercase tracking-[0.2em] text-zinc-500">
-                        {key.replace(/_/g, " ")}
-                      </span>
-                      <span className="font-medium text-zinc-200">
-                        {String(value)}
-                      </span>
-                    </div>
-                  ))
+                  <>
+                    {configToShow.map(([key, value]) => (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
+                      >
+                        <span className="uppercase tracking-[0.2em] text-zinc-500">
+                          {key.replace(/_/g, " ")}
+                        </span>
+                        <span className="font-medium text-zinc-200">
+                          {String(value)}
+                        </span>
+                      </div>
+                    ))}
+                    {hasMoreConfig ? (
+                      <button
+                        type="button"
+                        onClick={() => setConfigExpanded((e) => !e)}
+                        className="mt-1 rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-300"
+                      >
+                        {configExpanded
+                          ? "Show less"
+                          : `Show ${configEntries.length - CONFIG_VISIBLE_INITIAL} more`}
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <p className="text-xs text-zinc-500">
                     No config captured.
@@ -311,6 +368,7 @@ function TrainSessionPanel({ session }: TrainSessionPanelProps) {
                 )}
               </div>
             </div>
+            {/*
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
                 Summary
@@ -334,9 +392,12 @@ function TrainSessionPanel({ session }: TrainSessionPanelProps) {
                   <p className="text-xs text-zinc-500">
                     No summary metrics yet.
                   </p>
-                )}
+                )
+                TODO: Add summary metrics
+                  }
               </div>
             </div>
+            */}
           </div>
         </div>
       ) : (
@@ -633,6 +694,67 @@ function severityBadgeClass(severity: IssueOut["severity"]): string {
   }
 }
 
+function SuggestionBlock({ suggestion }: { suggestion: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(suggestion);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-emerald-800/60 bg-emerald-950/30 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wider text-emerald-400/90">
+          Suggested fix
+        </p>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/60 px-2.5 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"
+          title="Copy suggestion"
+        >
+          {copied ? (
+            "Copied!"
+          ) : (
+            <>
+              <CopyIcon className="h-3.5 w-3.5" aria-hidden />
+              Copy
+            </>
+          )}
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-zinc-200">{suggestion}</p>
+    </div>
+  );
+}
+
+function CopyIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16V4a2 2 0 0 1 2-2h10" />
+    </svg>
+  );
+}
+
 function SessionIssuesPanel({
   session,
   health,
@@ -641,11 +763,19 @@ function SessionIssuesPanel({
   const issueCount = health?.issues?.length ?? 0;
   const badgeLabel =
     health != null
-      ? `${health.health_score} · ${issueCount} issue${issueCount !== 1 ? "s" : ""}`
+      ? `Score: ${health.health_score} · ${issueCount} issue${issueCount !== 1 ? "s" : ""}`
       : "—";
+  const showGlow =
+    session?.status === "pending" && issueCount > 0;
 
   return (
-    <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
+    <section
+      className={`rounded-3xl border bg-zinc-950/60 p-6 shadow-lg ${
+        showGlow
+          ? "border-red-500/50 shadow-[0_0_24px_-2px_rgba(239,68,68,0.4)]"
+          : "border-zinc-800"
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
@@ -703,14 +833,9 @@ function SessionIssuesPanel({
                 <p className="mt-1 text-xs text-zinc-400">{issue.description}</p>
               ) : null}
               {issue.suggestion ? (
-                <div className="mt-3 rounded-xl border border-emerald-800/60 bg-emerald-950/30 px-3 py-2">
-                  <p className="text-xs font-medium uppercase tracking-wider text-emerald-400/90">
-                    Suggested fix
-                  </p>
-                  <p className="mt-1 text-sm text-zinc-200">
-                    {issue.suggestion}
-                  </p>
-                </div>
+                <SuggestionBlock
+                  suggestion={issue.suggestion}
+                />
               ) : null}
             </div>
           ))}
