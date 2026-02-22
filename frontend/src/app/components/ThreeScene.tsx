@@ -445,9 +445,22 @@ export default function ThreeScene({
                 raycaster?: { setFromCamera: (p: { x: number; y: number }, c: unknown) => void; intersectObjects: (o: unknown[], r: boolean) => Array<{ object?: { layerIndex?: number } }> };
                 camera?: unknown;
                 scene?: { children?: unknown[] };
+                renderer?: {
+                  setClearColor?: (color: number, alpha?: number) => void;
+                  setClearAlpha?: (alpha: number) => void;
+                };
               }
             | undefined;
           canvas = renderer?.sceneArea ?? null;
+          if (canvas) {
+            canvas.style.background = "rgba(24, 24, 27, 0.4)";
+          }
+          const webglRenderer = renderer?.renderer;
+          if (webglRenderer?.setClearColor) {
+            webglRenderer.setClearColor(0x18181b, 0.4);
+          } else if (webglRenderer?.setClearAlpha) {
+            webglRenderer.setClearAlpha(0.4);
+          }
           const raycaster = renderer?.raycaster;
           const camera = renderer?.camera;
           const scene = renderer?.scene as { rotation?: { z: number }; children?: unknown[] } | undefined;
@@ -546,7 +559,7 @@ export default function ThreeScene({
   return (
     <>
       <div
-        className={`relative rounded-3xl border border-zinc-800 bg-zinc-950/60 p-4 shadow-lg ${className}`}
+        className={`relative flex h-full flex-col rounded-3xl border border-zinc-800 bg-zinc-950/60 p-4 shadow-lg ${className}`}
       >
         <button
           type="button"
@@ -558,7 +571,7 @@ export default function ThreeScene({
         </button>
         <div
           ref={containerRef}
-          className="h-[420px] w-full rounded-2xl bg-zinc-900"
+          className="flex-1 min-h-0 w-full rounded-2xl bg-zinc-900/40"
         />
       </div>
       {isExpanded ? (
@@ -574,7 +587,7 @@ export default function ThreeScene({
             </button>
             <div
               ref={overlayContainerRef}
-              className="h-[78vh] w-full rounded-2xl bg-zinc-900"
+              className="h-[78vh] w-full rounded-2xl bg-zinc-900/40"
             />
           </div>
         </div>

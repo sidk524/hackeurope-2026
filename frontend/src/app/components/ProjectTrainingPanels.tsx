@@ -422,8 +422,69 @@ type ModelPanelProps = {
 };
 
 function ModelPanel({ session, model }: ModelPanelProps) {
+  const body =
+    !session ? (
+      <p className="text-xs text-zinc-500">
+        Select a run to inspect the bound model definition.
+      </p>
+    ) : model === undefined ? (
+      <p className="text-xs text-zinc-500">Loading model…</p>
+    ) : model === null ? (
+      <p className="text-xs text-zinc-500">
+        No model registered for this session.
+      </p>
+    ) : (
+      <div className="grid gap-3 text-sm text-zinc-200 md:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+            Architecture
+          </p>
+          <div className="mt-3 grid gap-2">
+            {Object.entries(model.architecture ?? {})
+              .filter(
+                ([key]) =>
+                  !["layers", "module_tree", "layer_graph"].includes(key)
+              )
+              .map(([key, value]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
+                >
+                  <span className="uppercase tracking-[0.2em] text-zinc-500">
+                    {key.replace(/_/g, " ")}
+                  </span>
+                  <span className="font-medium text-zinc-200">
+                    {String(value)}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+            Hyperparameters
+          </p>
+          <div className="mt-3 grid gap-2">
+            {Object.entries(model.hyperparameters ?? {}).map(([key, value]) => (
+              <div
+                key={key}
+                className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
+              >
+                <span className="uppercase tracking-[0.2em] text-zinc-500">
+                  {key.replace(/_/g, " ")}
+                </span>
+                <span className="font-medium text-zinc-200">
+                  {String(value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
   return (
-    <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
+    <section className="flex h-[420px] flex-col rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
@@ -435,65 +496,7 @@ function ModelPanel({ session, model }: ModelPanelProps) {
           Session {session ? `#${session.id}` : "—"}
         </span>
       </div>
-      {!session ? (
-        <p className="mt-4 text-xs text-zinc-500">
-          Select a run to inspect the bound model definition.
-        </p>
-      ) : model === undefined ? (
-        <p className="mt-4 text-xs text-zinc-500">Loading model…</p>
-      ) : model === null ? (
-        <p className="mt-4 text-xs text-zinc-500">
-          No model registered for this session.
-        </p>
-      ) : (
-        <div className="mt-4 grid gap-3 text-sm text-zinc-200 md:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-              Architecture
-            </p>
-            <div className="mt-3 grid gap-2">
-              {Object.entries(model.architecture ?? {})
-                .filter(
-                  ([key]) =>
-                    !["layers", "module_tree", "layer_graph"].includes(key)
-                )
-                .map(([key, value]) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
-                >
-                  <span className="uppercase tracking-[0.2em] text-zinc-500">
-                    {key.replace(/_/g, " ")}
-                  </span>
-                  <span className="font-medium text-zinc-200">
-                    {String(value)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-              Hyperparameters
-            </p>
-            <div className="mt-3 grid gap-2">
-              {Object.entries(model.hyperparameters ?? {}).map(([key, value]) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-300"
-                >
-                  <span className="uppercase tracking-[0.2em] text-zinc-500">
-                    {key.replace(/_/g, " ")}
-                  </span>
-                  <span className="font-medium text-zinc-200">
-                    {String(value)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="mt-4 flex-1 overflow-auto">{body}</div>
     </section>
   );
 }
@@ -1460,4 +1463,3 @@ export {
 };
 
   export type { SessionLog, TrainSession, TrainStep };
-
