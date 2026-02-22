@@ -995,6 +995,8 @@ class Observer:
                 self._log.warning(f"Carbon snapshot failed: {e}")
 
         self.step_data.append(rec)
+        if self._closed:
+            return rec
         self._log.info(f"Registering step {step_index} in backend")
         self._register_backend_step(rec)
         self._await_backend_status(rec)  # Poll the backend for the status of the session
@@ -1829,6 +1831,10 @@ class Observer:
         Once closed, the observer does nothing on any further method calls."""
         if self._closed:
             return
+        # Set closed immediately so re-entrant calls (e.g. flush from close while already
+        # inside flush → _await_backend_status → close) no-op and we don't keep
+        # registering steps or polling the backend.
+        self._closed = True
         if self._interval_started and (
             self._step_batch_losses or self._step_samples_processed or self._step_tokens_processed
         ):
@@ -1852,7 +1858,6 @@ class Observer:
                 pass
             self._carbon_tracker = None
         self.session["ended_at"] = datetime.now().isoformat()
-        self._closed = True
         self._log.info("Observer closed.")
 
     def __enter__(self):
