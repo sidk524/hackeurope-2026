@@ -1,6 +1,6 @@
 "use client";
 
-import type { TrainSession as ApiTrainSession, Project } from "@/lib/client";
+import type { TrainSession as ApiTrainSession } from "@/lib/client";
 import {
   createProjectProjectsPostMutation,
   getModelSessionsSessionIdModelGetOptions,
@@ -10,18 +10,19 @@ import {
   getSessionLogsSessionsSessionIdLogsGetOptions,
   getStepsSessionsSessionIdStepGetOptions,
   getTrainSessionsSessionsProjectProjectIdGetOptions,
+  getTrainSessionsSessionsProjectProjectIdGetQueryKey,
+  sessionActionSessionsSessionIdActionPostMutation
 } from "@/lib/client/@tanstack/react-query.gen";
 import { useEventSource } from "@/lib/use-event-source";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TrainSession as PanelTrainSession } from "./ProjectTrainingPanels";
 import {
   ModelPanel,
   SessionIssuesPanel,
   SessionList,
-  SessionLogList,
   TrainSessionPanel,
-  TrainStepList,
+  TrainStepList
 } from "./ProjectTrainingPanels";
 import ProjectTrendChart from "./ProjectTrendChart";
 
@@ -55,14 +56,6 @@ const SELECTED_PROJECT_ID_KEY = "atlas-selected-project-id";
 type ProjectsClientProps = {
   fontClassName: string;
 };
-
-const SUGGESTIONS = [
-  "Cache immutable assets with long-lived headers and hash-based filenames.",
-  "Split routes by intent and defer non-critical bundles with dynamic imports.",
-  "Batch API requests per screen and prefetch the next likely view during idle time.",
-  "Compress and resize imagery at build time; serve modern formats with fallbacks.",
-  "Instrument core flows to surface long tasks, then offload heavy work to workers.",
-] as const;
 
 function getStoredProjectId(): number | null {
   if (typeof window === "undefined") return null;
@@ -118,6 +111,41 @@ export default function ProjectsClient({
     getStoredProjectId
   );
   const [isProjectsOpen, setIsProjectsOpen] = useState(true);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [consoleHeight, setConsoleHeight] = useState(208); // px
+  const [consoleFollow, setConsoleFollow] = useState(true);
+  const consoleBodyRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(0);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = consoleHeight;
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (mv: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = dragStartY.current - mv.clientY;
+      setConsoleHeight(Math.min(600, Math.max(80, dragStartHeight.current + delta)));
+    };
+    const onUp = () => {
+      isDragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [consoleHeight]);
+
+  const [claudeReply, setClaudeReply] = useState<string>("");
+  const [claudeError, setClaudeError] = useState<string>("");
+  const [isClaudeLoading, setIsClaudeLoading] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
     null
   );
@@ -165,6 +193,19 @@ export default function ProjectsClient({
     },
   });
 
+  const sessionActionMutation = useMutation({
+    ...sessionActionSessionsSessionIdActionPostMutation(),
+    onSuccess: (_data, variables) => {
+      if (selectedProjectId != null) {
+        queryClient.invalidateQueries({
+          queryKey: getTrainSessionsSessionsProjectProjectIdGetQueryKey({
+            path: { project_id: selectedProjectId },
+          }),
+        });
+      }
+    },
+  });
+
   // Persist selection to localStorage when it changes
   const handleSelectProject = (id: number) => {
     setSelectedProjectId(id);
@@ -189,8 +230,8 @@ export default function ProjectsClient({
     }
   }, [projects, selectedProjectId]);
 
-  // Auto-select newest session (first in list, backend returns newest-first).
-  // When a new run starts, it appears as first → we select it so logs/steps show the active run.
+  // Auto-select newest session only when there is no selection or the selected session is no longer in the list.
+  // Do not overwrite user's explicit choice when they pick an older session.
   useEffect(() => {
     if (!selectedProjectId || sessionsForProject.length === 0) {
       if (!selectedProjectId) setSelectedSessionId(null);
@@ -199,8 +240,7 @@ export default function ProjectsClient({
     const newest = sessionsForProject[0];
     const currentInList = selectedSessionId != null && sessionsForProject.some((s) => s.id === selectedSessionId);
     const shouldSelectNewest =
-      newest != null &&
-      (selectedSessionId == null || !currentInList || newest.id > selectedSessionId);
+      newest != null && (selectedSessionId == null || !currentInList);
     if (shouldSelectNewest) {
       setSelectedSessionId(newest.id);
     }
@@ -268,7 +308,7 @@ export default function ProjectsClient({
     ...getSessionHealthDiagnosticsSessionsSessionIdHealthGetOptions({
       path: { session_id: sessionIdForModel ?? 0 },
     }),
-    enabled: sessionIdForModel != null && activeSession?.status == "pending",
+    enabled: sessionIdForModel != null,
   });
 
   const logsForPanel = useMemo(() => {
@@ -284,29 +324,17 @@ export default function ProjectsClient({
     }));
   }, [apiLogs]);
 
+  // Auto-scroll to bottom when new logs arrive and follow is on
+  useEffect(() => {
+    if (!consoleFollow || !consoleBodyRef.current) return;
+    consoleBodyRef.current.scrollTop = consoleBodyRef.current.scrollHeight;
+  }, [logsForPanel, consoleFollow]);
+
   const handleNewProject = () => {
     const nextNumber = projects.length + 1;
     createProjectMutation.mutate({
       body: { name: `Project ${nextNumber}` },
     });
-  };
-
-  const handleSuggestionClick = async (suggestion: string) => {
-    if (!selectedProject) return;
-
-    try {
-      await fetch("/api/suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          suggestion,
-          token: String(selectedProject.id),
-          projectName: selectedProject.name,
-        }),
-      });
-    } catch (error) {
-      console.error("Failed to send suggestion", error);
-    }
   };
 
   const handleRefreshAll = () => {
@@ -321,7 +349,7 @@ export default function ProjectsClient({
 
 
   return (
-    <div className={`${fontClassName} min-h-screen bg-zinc-900 text-zinc-100`}>
+    <div className={`${fontClassName} min-h-screen bg-zinc-900 text-zinc-100`} style={{ paddingBottom: isConsoleOpen ? `${consoleHeight + 40}px` : "3rem" }}>
       <div className="group fixed bottom-6 right-6 z-50 flex items-center gap-2">
         {lastRefreshLabel ? (
           <span className="text-xs text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
@@ -516,10 +544,6 @@ export default function ProjectsClient({
                 </p>
               )}
             </section>
-            <PipelineSuggestions
-              selectedProject={selectedProject}
-              onSuggestionClick={handleSuggestionClick}
-            />
             <ProjectTrendChart projectId={selectedProjectId} />
             </div>
             <div className="space-y-6 xl:col-span-5">
@@ -531,7 +555,28 @@ export default function ProjectsClient({
               selectedSessionId={selectedSessionId}
               onSelectSession={setSelectedSessionId}
             />
-            <TrainSessionPanel session={activeSession} />
+            <TrainSessionPanel
+              session={activeSession}
+              onResume={
+                activeSession?.status === "pending"
+                  ? (id) =>
+                      sessionActionMutation.mutate({
+                        path: { session_id: id },
+                        body: { action: "resume" },
+                      })
+                  : undefined
+              }
+              onStop={
+                activeSession?.status === "pending"
+                  ? (id) =>
+                      sessionActionMutation.mutate({
+                        path: { session_id: id },
+                        body: { action: "stop" },
+                      })
+                  : undefined
+              }
+              actionPending={sessionActionMutation.isPending}
+            />
             </div>
             <div className="space-y-6 xl:col-span-4">
             <ModelPanel session={activeSession} model={modelForPanel} />
@@ -540,7 +585,6 @@ export default function ProjectsClient({
               steps={apiSteps}
               stepsLoading={isStepsLoading}
             />
-            <SessionLogList session={activeSession} logs={logsForPanel} logsLoading={isLogsLoading} />
             <SessionIssuesPanel
               session={activeSession}
               health={healthData ?? null}
@@ -556,55 +600,125 @@ export default function ProjectsClient({
         sessionId={selectedSessionId}
         projectId={selectedProjectId}
       />
-    </div>
-  );
-}
 
-type PipelineSuggestionsProps = {
-  selectedProject: Project | null;
-  onSuggestionClick: (suggestion: string) => void;
-};
-
-function PipelineSuggestions({
-  selectedProject,
-  onSuggestionClick,
-}: PipelineSuggestionsProps) {
-  const isDisabled = !selectedProject;
-  return (
-    <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-            Optimisation hints
-          </p>
-          <h2 className="text-lg font-semibold">Pipeline suggestions</h2>
+      {/* ── Fixed bottom logs console ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col shadow-[0_-4px_24px_rgba(0,0,0,0.4)]">
+        {/* Drag handle — always on top */}
+        <div
+          onMouseDown={handleDragStart}
+          className="group flex h-2 cursor-ns-resize items-center justify-center bg-zinc-900 hover:bg-zinc-800"
+          aria-hidden
+        >
+          <div className="h-0.5 w-8 rounded-full bg-zinc-700 group-hover:bg-zinc-500 transition-colors" />
         </div>
-        <span className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-400">
-          Frontend focus
-        </span>
-      </div>
-      <div className="mt-4 grid gap-3 text-sm text-zinc-200">
-        {SUGGESTIONS.map((suggestion) => (
-          <button
-            key={suggestion}
-            type="button"
-            onClick={() => onSuggestionClick(suggestion)}
-            disabled={isDisabled}
-            className={`rounded-2xl border px-4 py-3 text-left transition ${
-              isDisabled
-                ? "cursor-not-allowed border-zinc-900/80 bg-zinc-900/30 text-zinc-600"
-                : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-600 hover:bg-zinc-900/70"
-            }`}
+
+        {/* Header / toggle bar */}
+        <div
+          className="flex items-center justify-between border-t border-zinc-700 bg-zinc-900 px-5 py-2 cursor-pointer select-none"
+          onClick={() => setIsConsoleOpen((o) => !o)}
+        >
+          <div className="flex items-center gap-3">
+            {activeSession?.status === "running" ? (
+              <span className="flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.5)] animate-pulse" aria-hidden />
+            ) : (
+              <span className="flex h-2 w-2 rounded-full bg-zinc-600" aria-hidden />
+            )}
+            <span className="font-mono text-xs font-semibold uppercase tracking-widest text-zinc-400">
+              Runtime output
+            </span>
+            {activeSession && (
+              <span className="rounded-full bg-zinc-800 px-2 py-0.5 font-mono text-[10px] text-zinc-500">
+                {activeSession.runName}
+              </span>
+            )}
+            {!isConsoleOpen && logsForPanel.some((l) => l.kind === "error" || l.level === "ERROR") && (
+              <span className="rounded-full bg-red-950/60 px-2 py-0.5 font-mono text-[10px] text-red-400">
+                errors
+              </span>
+            )}
+            {!isConsoleOpen && (
+              <span className="text-zinc-600 font-mono text-[10px]">
+                {isLogsLoading ? "loading…" : `${logsForPanel.length} lines`}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setConsoleFollow((f) => !f); }}
+              title={consoleFollow ? "Following — click to stop" : "Not following — click to follow"}
+              className={`rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest transition ${
+                consoleFollow
+                  ? "border-emerald-700 bg-emerald-950/50 text-emerald-400"
+                  : "border-zinc-700 bg-zinc-900 text-zinc-500 hover:border-zinc-500"
+              }`}
+            >
+              Follow
+            </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`text-zinc-500 transition-transform ${isConsoleOpen ? "rotate-180" : ""}`}
+              aria-hidden
+            >
+              <path d="m18 15-6-6-6 6" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Console body */}
+        {isConsoleOpen && (
+          <>
+          <div
+            ref={consoleBodyRef}
+            style={{ height: consoleHeight }}
+            className="overflow-y-auto bg-zinc-950 px-5 py-3 font-mono text-xs"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+              if (!atBottom && consoleFollow) setConsoleFollow(false);
+              if (atBottom && !consoleFollow) setConsoleFollow(true);
+            }}
           >
-            {suggestion}
-          </button>
-        ))}
+            {!activeSession ? (
+              <p className="text-zinc-600">Select a project to inspect live session logs.</p>
+            ) : isLogsLoading ? (
+              <p className="text-zinc-600 animate-pulse">Loading logs…</p>
+            ) : logsForPanel.length === 0 ? (
+              <p className="text-zinc-600">No logs yet.</p>
+            ) : (
+              logsForPanel.map((log) => (
+                <div key={log.id} className="flex flex-wrap gap-2 py-0.5">
+                  <span className="text-zinc-600">
+                    {new Date(log.ts).toLocaleTimeString()}
+                  </span>
+                  <span
+                    className={`font-semibold ${
+                      log.level === "ERROR" || log.kind === "error"
+                        ? "text-red-400"
+                        : log.level === "WARN"
+                          ? "text-amber-400"
+                          : "text-emerald-400"
+                    }`}
+                  >
+                    {log.level}
+                  </span>
+                  <span className="text-zinc-500">{log.module}:{log.lineno}</span>
+                  <span className="text-zinc-200">{log.msg}</span>
+                </div>
+              ))
+            )}
+          </div>
+          </>
+        )}
       </div>
-      {isDisabled ? (
-        <p className="mt-3 text-xs text-zinc-500">
-          Select a project to send suggestions.
-        </p>
-      ) : null}
-    </section>
+    </div>
   );
 }

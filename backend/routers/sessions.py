@@ -74,6 +74,10 @@ class SessionLogCreate(BaseModel):
     kind: Literal["console", "error"] = "console"
 
 
+class SessionLogBatchCreate(BaseModel):
+    logs: list[SessionLogCreate]
+
+
 class SessionActionRequest(BaseModel):
     action: Literal["stop", "resume"]
 
@@ -323,7 +327,7 @@ def _run_step_diagnostics(session_id: int) -> None:
                 )
                 train_session.status = (
                     SessionStatus.pending
-                    if has_critical or has_warning_cluster
+                    if has_critical or has_warning_cluster or True
                     else SessionStatus.running
                 )
                 db.add(train_session)
@@ -420,6 +424,41 @@ def create_session_log(session_id: int, body: SessionLogCreate, session: Session
         data={"level": body.level, "kind": body.kind},
     ))
     return log_db
+
+
+@router.post("/{session_id}/logs", response_model=list[SessionLog], status_code=201)
+def create_session_logs_batch(session_id: int, body: SessionLogBatchCreate, session: SessionDep):
+    """Accept a batch of log entries to reduce request spam from the observer."""
+    train_session = session.get(TrainSession, session_id)
+    if not train_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not body.logs:
+        return []
+    created = []
+    for log_in in body.logs:
+        kind = LogKind.console if log_in.kind == "console" else LogKind.error
+        log_db = SessionLog(
+            session_id=session_id,
+            ts=log_in.ts,
+            level=log_in.level,
+            msg=log_in.msg,
+            module=log_in.module,
+            lineno=log_in.lineno,
+            kind=kind,
+        )
+        session.add(log_db)
+        created.append(log_db)
+    session.commit()
+    for log_db in created:
+        session.refresh(log_db)
+    # Single SSE event for the batch so the UI can refetch or update once
+    publish_from_sync(SSEEvent(
+        event_type=EventType.log_created,
+        project_id=train_session.project_id,
+        session_id=session_id,
+        data={"batch": True, "count": len(created)},
+    ))
+    return created
 
 
 @router.get("/{session_id}/logs", response_model=list[SessionLog])
