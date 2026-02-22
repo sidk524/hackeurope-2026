@@ -45,6 +45,7 @@ function mapApiSessionToPanel(api: ApiTrainSession): PanelTrainSession {
   };
 }
 
+import Image from "next/image";
 import ProactiveInsightBanner, {
   useProactiveInsights,
   type InsightItem,
@@ -537,9 +538,13 @@ export default function ProjectsClient({
       <div className={`${fontClassName} min-h-screen bg-zinc-900 text-zinc-100`}>
         <div className="relative isolate overflow-hidden">
           <header className="mx-auto flex w-full max-w-[1700px] items-center gap-4 px-6 pt-6">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sm font-bold uppercase text-zinc-900">
-              A
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Atlas logo"
+              width={60}
+              height={60}
+              className=""
+            />
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
                 Atlas Workspace
@@ -807,9 +812,13 @@ with Observer(project_id=1, run_name="my-run", config=config) as observer:
       <div className="relative isolate overflow-hidden">
         <header className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center justify-between gap-4 px-6 pt-6">
           <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sm font-bold uppercase text-zinc-900">
-              A
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Atlas logo"
+              width={44}
+              height={44}
+              className="rounded-2xl"
+            />
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
                 Atlas Workspace

@@ -10,8 +10,11 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "clawdstain",
+  title: "Atlas - Dashboard",
   description: "",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
