@@ -27,6 +27,7 @@ class EventType(str, Enum):
     log_created = "log.created"
     model_registered = "model.registered"
     diagnostic_completed = "diagnostic.completed"
+    agent_insight = "agent.insight"
 
 
 # ---------------------------------------------------------------------------
