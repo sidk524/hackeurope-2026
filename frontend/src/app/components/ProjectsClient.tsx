@@ -732,6 +732,14 @@ export default function ProjectsClient({
                 </div>
               ) : null}
             </div>
+            {selectedProject?.id != null ? (
+              <>
+                <div className="h-8 w-px bg-zinc-600" aria-hidden />
+                <span className="text-sm font-medium text-zinc-500">
+                  ID {selectedProject.id}
+                </span>
+              </>
+            ) : null}
           </div>
 
           <div className="flex items-center justify-end gap-3">
