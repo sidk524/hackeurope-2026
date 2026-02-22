@@ -302,9 +302,10 @@ def run_session_diagnostics(session_id: int, db: SessionDep):
         select(Model).where(Model.session_id == session_id)
     ).first()
     arch: dict | None = model.architecture if model else None
+    hp: dict | None = model.hyperparameters if model else None
 
     # Run diagnostics engine
-    issue_data_list, health_score, arch_type = run_diagnostics(epochs, logs, arch)
+    issue_data_list, health_score, arch_type = run_diagnostics(epochs, logs, arch, hp)
 
     # Build summary json
     summary_json = {
@@ -501,8 +502,9 @@ def get_session_health(session_id: int, db: SessionDep):
         select(Model).where(Model.session_id == session_id)
     ).first()
     arch = model.architecture if model else None
+    hp = model.hyperparameters if model else None
 
-    issue_data_list, health_score, _ = run_diagnostics(epochs, logs, arch)
+    issue_data_list, health_score, _ = run_diagnostics(epochs, logs, arch, hp)
 
     # Convert to IssueOut for consistency
     issues_out = [

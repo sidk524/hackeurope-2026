@@ -90,6 +90,9 @@ COMPUTE_INEFF_RATIO = 10                   # compute% / param% > Nx → compute-
 COMPUTE_INEFF_MIN_COMPUTE_PCT = 5          # also require at least N% compute to avoid trivial flags
 DEVICE_UNDERUTIL_GPU_RATIO = 0.1           # CUDA/CPU time ratio < N → GPU underutilized
 EARLY_STOP_MOC_THRESHOLD = 0.05            # marginal/cumulative < N (5%) → optimal stop point
+
+# GreenAI severity escalation
+COMPUTE_INEFF_ESCALATION_PCT = 15          # compute-inefficient layer using > N% compute → warning
 EARLY_STOP_MIN_WASTED_EPOCHS = 1           # flag only when at least N epoch(s) were wasted
 
 # GreenAI / layer health checks (tensor-level)
@@ -449,23 +452,32 @@ def check_slow_epoch(epochs: list[dict]) -> list[IssueData]:
     return issues
 
 
-def check_high_cpu(epochs: list[dict]) -> list[IssueData]:
-    """Flag epochs where system CPU utilisation exceeds 90%."""
+def check_high_cpu(
+    epochs: list[dict],
+    has_gpu_available: bool = False,
+) -> list[IssueData]:
+    """Flag epochs where system CPU utilisation exceeds 90%.
+
+    Severity escalates from info → warning when a GPU is available but
+    training is CPU-bottlenecked (wasted energy from a GreenAI perspective).
+    """
     issues: list[IssueData] = []
+    sev = IssueSeverity.warning if has_gpu_available else IssueSeverity.info
     for e in epochs:
         cpu = (e.get("system") or {}).get("cpu_percent", 0) or 0
         if cpu > HIGH_CPU_THRESHOLD:
             issues.append(IssueData(
-                severity=IssueSeverity.info,
+                severity=sev,
                 category=IssueCategory.system,
                 title="High CPU utilisation",
                 description=(
                     f"Epoch {e['epoch']}: CPU at {cpu:.1f}% — "
                     "training is compute-bottlenecked on CPU"
+                    + (" while a GPU is available" if has_gpu_available else "")
                 ),
                 epoch_index=e["epoch"],
                 metric_key="cpu_percent",
-                metric_value={"cpu_percent": cpu},
+                metric_value={"cpu_percent": cpu, "gpu_available": has_gpu_available},
                 suggestion=(
                     "Move training to GPU. "
                     "Enable pin_memory=True in DataLoader and increase num_workers."
@@ -791,8 +803,14 @@ def check_compute_inefficient_layer(epochs: list[dict], arch: dict | None) -> li
             continue
         ratio = avg_compute / pct_params
         if ratio > COMPUTE_INEFF_RATIO and avg_compute > COMPUTE_INEFF_MIN_COMPUTE_PCT:
+            # Escalate to warning when the layer wastes substantial compute
+            sev = (
+                IssueSeverity.warning
+                if avg_compute > COMPUTE_INEFF_ESCALATION_PCT
+                else IssueSeverity.info
+            )
             issues.append(IssueData(
-                severity=IssueSeverity.info,
+                severity=sev,
                 category=IssueCategory.sustainability,
                 title=f"Compute-inefficient layer: {layer_name}",
                 description=(
@@ -834,7 +852,7 @@ def check_device_underutilization(epochs: list[dict]) -> list[IssueData]:
 
     if profiled_count > 0 and total_cuda == 0 and total_cpu > 0:
         issues.append(IssueData(
-            severity=IssueSeverity.info,
+            severity=IssueSeverity.warning,
             category=IssueCategory.sustainability,
             title="Training running entirely on CPU",
             description=(
@@ -1458,7 +1476,7 @@ def check_gpu_power_efficiency(epochs: list[dict]) -> list[IssueData]:
         gpu_e = sample.get("gpu_energy_kwh", 0) or 0
         ratio = cpu_e / max(gpu_e, 1e-12)
         issues.append(IssueData(
-            severity=IssueSeverity.info,
+            severity=IssueSeverity.warning,
             category=IssueCategory.sustainability,
             title=f"CPU consuming {ratio:.1f}x more energy than GPU ({len(high_cpu_epochs)} epoch(s))",
             description=(
@@ -1703,6 +1721,14 @@ CHECKER_REGISTRY: dict[str, Any] = {
     "generic": _NotImplementedChecker(),
 }
 
+def _detect_gpu_available(epochs: list[dict]) -> bool:
+    """Detect if any epoch-level data indicates GPU availability."""
+    for e in epochs:
+        carbon = e.get("carbon_emissions")
+        if carbon and carbon.get("gpu_power_w", 0) > 0:
+            return True
+    return False
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main entry point
@@ -1712,6 +1738,7 @@ def run_diagnostics(
     epochs: list[dict],
     logs: list[Any],
     arch: dict | None,
+    hyperparameters: dict | None = None,
 ) -> tuple[list[IssueData], int, str]:
     """
     Run the full suite of ML heuristic checks.
@@ -1738,7 +1765,8 @@ def run_diagnostics(
     issues += check_throughput_degradation(epochs)
     issues += check_memory_growth(epochs)
     issues += check_slow_epoch(epochs)
-    issues += check_high_cpu(epochs)
+    _has_gpu = _detect_gpu_available(epochs)
+    issues += check_high_cpu(epochs, has_gpu_available=_has_gpu)
     issues += check_error_logs(logs)
 
     # ── Profiler checks ───────────────────────────────────────────────────
