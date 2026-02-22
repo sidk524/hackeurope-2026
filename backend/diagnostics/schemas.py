@@ -117,3 +117,10 @@ class ProjectTrendOut(BaseModel):
     project_id: int
     sessions: list[SessionTrendItem]
     improving: bool | None = None   # None if < 2 sessions with diagnostics
+
+
+class FixPromptOut(BaseModel):
+    """Generated system prompt for solving a diagnostic issue."""
+    issue_id: int
+    prompt: str
+    cached: bool = False

@@ -28,6 +28,7 @@ from diagnostics.schemas import (
     DiagnosticRunOut,
     DiagnosticRunSummary,
     EpochDiagnosticSummary,
+    FixPromptOut,
     HealthOut,
     IssueOut,
     LayerHighlight,
@@ -37,6 +38,11 @@ from diagnostics.schemas import (
 )
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fix-prompt in-memory cache  (issue_id → generated prompt string)
+# ─────────────────────────────────────────────────────────────────────────────
+_fix_prompt_cache: dict[int, str] = {}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -608,3 +614,97 @@ def get_project_trend(project_id: int, db: SessionDep):
         sessions=trend_items,
         improving=improving,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fix Prompt generation  (POST to generate / GET to retrieve cached)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_FIX_PROMPT_TEMPLATE = """You are an expert ML engineer debugging a training run.
+
+A diagnostic analysis has detected the following issue:
+
+## Issue
+- **Title:** {title}
+- **Severity:** {severity}
+- **Category:** {category}
+- **Description:** {description}
+{epoch_line}{layer_line}{metric_line}
+## Suggested Fix
+{suggestion}
+
+## Your Task
+Implement the suggested fix above. Provide:
+1. The exact code changes needed (with before/after snippets).
+2. Where in the training script or model definition to apply them.
+3. Expected impact on the training metrics after the fix.
+4. Any caveats or alternative approaches worth considering.
+
+Be concise and actionable. Use code blocks for all code."""
+
+
+def _build_fix_prompt(issue: DiagnosticIssue) -> str:
+    """Build a system prompt from a DiagnosticIssue row."""
+    epoch_line = f"- **Epoch:** {issue.epoch_index}\n" if issue.epoch_index is not None else ""
+    layer_line = f"- **Layer:** `{issue.layer_id}`\n" if issue.layer_id else ""
+    metric_line = ""
+    if issue.metric_key:
+        val = issue.metric_value if issue.metric_value is not None else "N/A"
+        metric_line = f"- **Metric:** {issue.metric_key} = {val}\n"
+
+    return _FIX_PROMPT_TEMPLATE.format(
+        title=issue.title,
+        severity=issue.severity.value if hasattr(issue.severity, 'value') else issue.severity,
+        category=issue.category.value if hasattr(issue.category, 'value') else issue.category,
+        description=issue.description,
+        epoch_line=epoch_line,
+        layer_line=layer_line,
+        metric_line=metric_line,
+        suggestion=issue.suggestion or "No specific suggestion available.",
+    )
+
+
+@router.post("/issues/{issue_id}/prompt", response_model=FixPromptOut)
+def generate_fix_prompt(issue_id: int, db: SessionDep):
+    """
+    Generate (and cache) an actionable system prompt from a diagnostic issue's
+    suggested fix. Returns the prompt text ready to paste into an LLM.
+    """
+    # Return from cache if available
+    if issue_id in _fix_prompt_cache:
+        return FixPromptOut(
+            issue_id=issue_id,
+            prompt=_fix_prompt_cache[issue_id],
+            cached=True,
+        )
+
+    issue = db.get(DiagnosticIssue, issue_id)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    prompt = _build_fix_prompt(issue)
+    _fix_prompt_cache[issue_id] = prompt
+
+    return FixPromptOut(issue_id=issue_id, prompt=prompt, cached=False)
+
+
+@router.get("/issues/{issue_id}/prompt", response_model=FixPromptOut)
+def get_fix_prompt(issue_id: int, db: SessionDep):
+    """
+    Retrieve a previously cached fix prompt. If not cached yet, generates it.
+    """
+    if issue_id in _fix_prompt_cache:
+        return FixPromptOut(
+            issue_id=issue_id,
+            prompt=_fix_prompt_cache[issue_id],
+            cached=True,
+        )
+
+    issue = db.get(DiagnosticIssue, issue_id)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    prompt = _build_fix_prompt(issue)
+    _fix_prompt_cache[issue_id] = prompt
+
+    return FixPromptOut(issue_id=issue_id, prompt=prompt, cached=False)

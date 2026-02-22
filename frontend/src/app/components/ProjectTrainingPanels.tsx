@@ -701,8 +701,16 @@ function severityBadgeClass(severity: IssueOut["severity"]): string {
   }
 }
 
-function SuggestionBlock({ suggestion }: { suggestion: string }) {
+function SuggestionBlock({ suggestion, issueId }: { suggestion: string; issueId?: number | null }) {
   const [copied, setCopied] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
+  const [prompt, setPrompt] = useState<string | null>(null);
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const API_BASE =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
   const handleCopy = async () => {
     try {
@@ -714,30 +722,143 @@ function SuggestionBlock({ suggestion }: { suggestion: string }) {
     }
   };
 
+  const handleCreatePrompt = async () => {
+    if (!issueId) return;
+    if (prompt) {
+      // Already generated — toggle visibility
+      setExpanded((prev) => !prev);
+      return;
+    }
+    setPromptLoading(true);
+    setPromptError(null);
+    try {
+      const res = await fetch(`${API_BASE}/diagnostics/issues/${issueId}/prompt`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setPrompt(data.prompt);
+      setExpanded(true);
+    } catch (err: unknown) {
+      setPromptError(err instanceof Error ? err.message : "Failed to generate prompt");
+    } finally {
+      setPromptLoading(false);
+    }
+  };
+
+  const handleCopyPrompt = async () => {
+    if (!prompt) return;
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch {
+      setPromptCopied(false);
+    }
+  };
+
   return (
     <div className="mt-3 rounded-xl border border-emerald-800/60 bg-emerald-950/30 px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wider text-emerald-400/90">
           Suggested fix
         </p>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/60 px-2.5 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"
-          title="Copy suggestion"
-        >
-          {copied ? (
-            "Copied!"
-          ) : (
-            <>
-              <CopyIcon className="h-3.5 w-3.5" aria-hidden />
-              Copy
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          {issueId ? (
+            <button
+              type="button"
+              onClick={handleCreatePrompt}
+              disabled={promptLoading}
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950/60 px-2.5 py-1.5 text-xs text-emerald-300 transition hover:border-emerald-500 hover:bg-emerald-900 hover:text-emerald-100 disabled:opacity-50"
+              title="Generate an LLM prompt to solve this issue"
+            >
+              {promptLoading ? (
+                "Generating…"
+              ) : prompt ? (
+                <>
+                  <PromptIcon className="h-3.5 w-3.5" aria-hidden />
+                  {expanded ? "Hide Prompt" : "Show Prompt"}
+                </>
+              ) : (
+                <>
+                  <PromptIcon className="h-3.5 w-3.5" aria-hidden />
+                  Create Prompt
+                </>
+              )}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/60 px-2.5 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"
+            title="Copy suggestion"
+          >
+            {copied ? (
+              "Copied!"
+            ) : (
+              <>
+                <CopyIcon className="h-3.5 w-3.5" aria-hidden />
+                Copy
+              </>
+            )}
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-sm text-zinc-200">{suggestion}</p>
+
+      {promptError ? (
+        <p className="mt-2 text-xs text-red-400">{promptError}</p>
+      ) : null}
+
+      {prompt && expanded ? (
+        <div className="mt-3 rounded-lg border border-violet-800/60 bg-violet-950/30 px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-violet-400/90">
+              Generated Prompt
+            </p>
+            <button
+              type="button"
+              onClick={handleCopyPrompt}
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/60 px-2.5 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"
+              title="Copy prompt"
+            >
+              {promptCopied ? (
+                "Copied!"
+              ) : (
+                <>
+                  <CopyIcon className="h-3.5 w-3.5" aria-hidden />
+                  Copy Prompt
+                </>
+              )}
+            </button>
+          </div>
+          <pre className="dark-scrollbar mt-2 max-h-64 overflow-auto whitespace-pre-wrap text-xs text-zinc-200 font-mono leading-relaxed">
+            {prompt}
+          </pre>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function PromptIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <polyline points="4 17 10 11 4 5" />
+      <line x1="12" y1="19" x2="20" y2="19" />
+    </svg>
   );
 }
 
@@ -842,6 +963,7 @@ function SessionIssuesPanel({
               {issue.suggestion ? (
                 <SuggestionBlock
                   suggestion={issue.suggestion}
+                  issueId={issue.id}
                 />
               ) : null}
             </div>
