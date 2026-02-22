@@ -52,6 +52,68 @@ import ThreeScene from "./ThreeScene";
 
 const SELECTED_PROJECT_ID_KEY = "atlas-selected-project-id";
 
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function severityWeight(severity: unknown): number {
+  if (severity === "critical") return 1;
+  if (severity === "warning") return 0.65;
+  if (severity === "info") return 0.35;
+  return 0.5;
+}
+
+function metricPenalty(metricKey: unknown, metricValue: unknown): number {
+  const key = typeof metricKey === "string" ? metricKey : "";
+  const mv = metricValue && typeof metricValue === "object"
+    ? (metricValue as Record<string, unknown>)
+    : {};
+
+  if (key === "is_dead") return 1;
+  if (key === "gradient_norm_mean") return 0.75;
+  if (key === "activation_var_of_means" || key === "activation_std") return 0.7;
+  if (key === "activation_correlation") {
+    const corr = Math.abs(toFiniteNumber(mv.avg_correlation) ?? 0);
+    return clamp01((corr - 0.9) / 0.1);
+  }
+  if (key === "weight_sparsity") {
+    const sparsity = toFiniteNumber(mv.weight_sparsity) ?? 0;
+    return clamp01((sparsity - 0.4) / 0.6);
+  }
+  if (key === "compute_to_param_ratio" || key === "param_to_compute_ratio") {
+    const ratio = toFiniteNumber(mv.ratio) ?? 0;
+    return clamp01((ratio - 3) / 12);
+  }
+  if (key === "pct_total" || key === "avg_pct_total" || key === "pct_of_total") {
+    const pct = toFiniteNumber(mv.pct_total) ?? toFiniteNumber(mv.avg_pct) ?? toFiniteNumber(mv.pct) ?? 0;
+    return clamp01((pct - 20) / 50);
+  }
+  if (key === "out_channels" || key === "kernel_size") return 0.45;
+  return 0.5;
+}
+
+function linkedLayerIds(issue: {
+  layer_id?: unknown;
+  metric_key?: unknown;
+  metric_value?: unknown;
+}): string[] {
+  const ids = new Set<string>();
+  if (typeof issue.layer_id === "string" && issue.layer_id.length > 0) {
+    ids.add(issue.layer_id);
+  }
+  if (issue.metric_key === "activation_correlation" && issue.metric_value && typeof issue.metric_value === "object") {
+    const mv = issue.metric_value as Record<string, unknown>;
+    if (typeof mv.layer_a === "string" && mv.layer_a.length > 0) ids.add(mv.layer_a);
+    if (typeof mv.layer_b === "string" && mv.layer_b.length > 0) ids.add(mv.layer_b);
+  }
+  return Array.from(ids);
+}
+
 type ProjectsClientProps = {
   fontClassName: string;
 };
@@ -333,6 +395,36 @@ export default function ProjectsClient({
     }),
     enabled: sessionIdForModel != null,
   });
+
+  const sustainabilityScores = useMemo(() => {
+    const issues = healthData?.issues ?? [];
+    const penaltiesByLayer = new Map<string, number[]>();
+    for (const issue of issues) {
+      const layerIds = linkedLayerIds(issue as { layer_id?: unknown; metric_key?: unknown; metric_value?: unknown });
+      if (layerIds.length === 0) continue;
+      const weight = severityWeight((issue as { severity?: unknown }).severity);
+      const penalty = metricPenalty(
+        (issue as { metric_key?: unknown }).metric_key,
+        (issue as { metric_value?: unknown }).metric_value
+      );
+      const combined = clamp01(weight * penalty);
+      for (const layerId of layerIds) {
+        const current = penaltiesByLayer.get(layerId) ?? [];
+        current.push(combined);
+        penaltiesByLayer.set(layerId, current);
+      }
+    }
+
+    const scores: Record<string, number> = {};
+    for (const [layerId, penalties] of penaltiesByLayer.entries()) {
+      let unsustainability = 0;
+      for (const p of penalties) {
+        unsustainability = unsustainability + p * (1 - unsustainability) * 0.9;
+      }
+      scores[layerId] = Math.max(0, Math.min(100, Math.round((1 - unsustainability) * 100)));
+    }
+    return scores;
+  }, [healthData]);
 
   const logsForPanel = useMemo(() => {
     return apiLogs.map((log) => ({
@@ -671,7 +763,7 @@ export default function ProjectsClient({
           {/* Row 1: visualization | architecture */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="h-[420px]">
-              <ThreeScene model={modelForPanel ?? null} />
+              <ThreeScene model={modelForPanel ?? null} sustainabilityScores={sustainabilityScores} />
             </div>
             <ModelPanel session={activeSession} model={modelForPanel} />
           </div>

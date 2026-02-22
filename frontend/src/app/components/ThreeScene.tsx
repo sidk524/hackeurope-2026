@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Model } from "@/lib/client";
 
 type ThreeSceneProps = {
   className?: string;
   model?: Model | null;
+  sustainabilityScores?: Record<string, number>;
 };
 
 type NetworkLayer = {
@@ -17,6 +18,12 @@ type NetworkLayer = {
 type ParsedNetwork = {
   name: string;
   layers: NetworkLayer[];
+};
+
+type LayerMetaItem = {
+  id: string;
+  type: string;
+  params: Record<string, unknown>;
 };
 
 const CONTAINER_TYPES = new Set(["GPTLanguageModel", "SmallCNN", "Sequential", "ModuleList"]);
@@ -45,6 +52,56 @@ function getClassLabels(count: number): string[] {
 function maybeInt(v: number): number | null {
   const n = Math.round(v);
   return Number.isFinite(v) && Math.abs(v - n) < 1e-6 ? n : null;
+}
+
+function scoreToColor(score: number): string {
+  const clamped = Math.max(0, Math.min(100, score));
+  const hue = (clamped / 100) * 120;
+  return `hsl(${hue}, 85%, 48%)`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function tintMaterial(material: unknown, color: string): void {
+  const rec = asRecord(material);
+  const colorRef = asRecord(rec.color);
+  const setStyle = colorRef.setStyle;
+  if (typeof setStyle === "function") {
+    setStyle.call(rec.color, color);
+  }
+}
+
+function tintObjectTree(
+  node: unknown,
+  layerMeta: LayerMetaItem[],
+  sustainabilityScores: Record<string, number>
+): void {
+  const rec = asRecord(node);
+  const rawLayerIndex = rec.layerIndex;
+  if (Number.isInteger(rawLayerIndex)) {
+    const idx = Number(rawLayerIndex);
+    const meta = layerMeta[idx] ?? layerMeta[idx - 1];
+    if (meta) {
+      const score = sustainabilityScores[meta.id];
+      if (typeof score === "number") {
+        const color = scoreToColor(score);
+        const material = rec.material;
+        if (Array.isArray(material)) {
+          for (const m of material) tintMaterial(m, color);
+        } else {
+          tintMaterial(material, color);
+        }
+      }
+    }
+  }
+  const children = rec.children;
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      tintObjectTree(child, layerMeta, sustainabilityScores);
+    }
+  }
 }
 
 function inferLinearDims(parameters: number | null, nEmbd: number | null) {
@@ -218,12 +275,28 @@ function parseModel(model: Model | null | undefined): ParsedNetwork {
   return { name: runName, layers: enriched };
 }
 
-export default function ThreeScene({ className = "", model }: ThreeSceneProps) {
+export default function ThreeScene({ className = "", model, sustainabilityScores = {} }: ThreeSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const overlayContainerRef = useRef<HTMLDivElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    const container = containerRef.current;
+    if (!isExpanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsExpanded(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isExpanded]);
+
+  useEffect(() => {
+    const container = isExpanded ? overlayContainerRef.current : containerRef.current;
     if (!container) return;
     let disposed = false;
     let modelRenderer: { animate?: () => void; stopAnimate?: () => void } | null = null;
@@ -250,7 +323,7 @@ export default function ThreeScene({ className = "", model }: ThreeSceneProps) {
         let hasSpatialLayer = false;
         let flattenAdded = false;
         let added = 0;
-        const layerMeta: Array<{ id: string; type: string; params: Record<string, unknown> }> = [
+        const layerMeta: LayerMetaItem[] = [
           { id: "input", type: "GreyscaleInput", params: { shape: [28, 28] } },
         ];
 
@@ -367,6 +440,9 @@ export default function ThreeScene({ className = "", model }: ThreeSceneProps) {
           if (!canvas || !raycaster || !camera || !sceneChildren) return;
           // Rotate scene so the network flows sideways (left–right) instead of upwards
           if (scene?.rotation) scene.rotation.z = Math.PI / 2;
+          for (const child of sceneChildren) {
+            tintObjectTree(child, layerMeta, sustainabilityScores);
+          }
           let activeKey = "";
           const hide = () => {
             if (!tooltipRef.current) return;
@@ -406,7 +482,12 @@ export default function ThreeScene({ className = "", model }: ThreeSceneProps) {
                     `<div><span style="opacity:.75">${k}</span>: <span>${Array.isArray(v) ? `[${v.join(", ")}]` : String(v)}</span></div>`
                 )
                 .join("");
-              tooltipRef.current.innerHTML = `<div style="font-weight:600;margin-bottom:4px">${meta.id}</div><div style="opacity:.85;margin-bottom:4px">type: ${meta.type}</div>${paramsLines}`;
+              const scoreValue = sustainabilityScores[meta.id];
+              const sustainabilityLine =
+                typeof scoreValue === "number"
+                  ? `<div style="opacity:.95;margin-bottom:4px">sustainability: <span style="font-weight:600">${Math.max(0, Math.min(100, Math.round(scoreValue)))}/100</span></div>`
+                  : "";
+              tooltipRef.current.innerHTML = `<div style="font-weight:600;margin-bottom:4px">${meta.id}</div><div style="opacity:.85;margin-bottom:4px">type: ${meta.type}</div>${sustainabilityLine}${paramsLines}`;
               activeKey = key;
             }
             if (tooltipRef.current) {
@@ -437,16 +518,44 @@ export default function ThreeScene({ className = "", model }: ThreeSceneProps) {
       if (modelRenderer?.stopAnimate) modelRenderer.stopAnimate();
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, [model]);
+  }, [model, isExpanded, sustainabilityScores]);
 
   return (
-    <div
-      className={`rounded-3xl border border-zinc-800 bg-zinc-950/60 p-4 shadow-lg ${className}`}
-    >
+    <>
       <div
-        ref={containerRef}
-        className="h-[420px] w-full rounded-2xl bg-zinc-900"
-      />
-    </div>
+        className={`relative rounded-3xl border border-zinc-800 bg-zinc-950/60 p-4 shadow-lg ${className}`}
+      >
+        <button
+          type="button"
+          onClick={() => setIsExpanded(true)}
+          aria-label="Expand visualization"
+          className="absolute right-6 top-6 rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
+        >
+          Expand
+        </button>
+        <div
+          ref={containerRef}
+          className="h-[420px] w-full rounded-2xl bg-zinc-900"
+        />
+      </div>
+      {isExpanded ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-6">
+          <div className="relative w-full max-w-7xl rounded-3xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              aria-label="Close expanded visualization"
+              className="absolute right-5 top-5 rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
+            >
+              Close
+            </button>
+            <div
+              ref={overlayContainerRef}
+              className="h-[78vh] w-full rounded-2xl bg-zinc-900"
+            />
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
