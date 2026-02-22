@@ -13,6 +13,7 @@ import {
   getTrainSessionsSessionsProjectProjectIdGetQueryKey,
   sessionActionSessionsSessionIdActionPostMutation
 } from "@/lib/client/@tanstack/react-query.gen";
+import { useAgentChat } from "@/lib/use-agent-chat";
 import { useEventSource } from "@/lib/use-event-source";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +26,7 @@ import {
   TrainStepList
 } from "./ProjectTrainingPanels";
 import ProjectTrendChart from "./ProjectTrendChart";
+import StepsDashboard from "./StepsDashboard";
 
 function mapApiSessionToPanel(api: ApiTrainSession): PanelTrainSession {
   return {
@@ -222,6 +224,7 @@ export default function ProjectsClient({
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
     null
   );
+  const [terminalActiveTab, setTerminalActiveTab] = useState<"logs" | "agent">("logs");
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const [, setTick] = useState(0);
 
@@ -395,6 +398,21 @@ export default function ProjectsClient({
     }),
     enabled: sessionIdForModel != null,
   });
+
+  // Agent chat — lifted from BottomTerminalPanel so Explain buttons can send prompts
+  const agentChat = useAgentChat({
+    sessionId: selectedSessionId,
+    projectId: selectedProjectId,
+  });
+
+  const handleExplain = useCallback(
+    (prompt: string) => {
+      setIsConsoleOpen(true);
+      setTerminalActiveTab("agent");
+      agentChat.sendMessage(prompt);
+    },
+    [agentChat]
+  );
 
   const sustainabilityScores = useMemo(() => {
     const issues = healthData?.issues ?? [];
@@ -830,6 +848,17 @@ export default function ProjectsClient({
             <SustainabilityPanel sessionId={selectedSessionId} />
           </div>
 
+          {/* Row 2.5: Step Profiler Dashboard */}
+          {apiSteps.length > 0 && (
+            <div className="mt-4">
+              <StepsDashboard
+                steps={apiSteps}
+                stepsLoading={isStepsLoading}
+                onExplain={handleExplain}
+              />
+            </div>
+          )}
+
           {/* Row 3: recent steps | project trend */}
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <TrainStepList
@@ -861,6 +890,14 @@ export default function ProjectsClient({
           if (atBottom && !consoleFollow) setConsoleFollow(true);
         }}
         onPanelHeightChange={handlePanelHeightChange}
+        agentMessages={agentChat.messages}
+        agentBeliefState={agentChat.beliefState}
+        agentIsLoading={agentChat.isLoading}
+        agentError={agentChat.error}
+        agentSendMessage={agentChat.sendMessage}
+        agentClearHistory={agentChat.clearHistory}
+        activeTab={terminalActiveTab}
+        onActiveTabChange={setTerminalActiveTab}
         sessionId={selectedSessionId}
         projectId={selectedProjectId}
       />

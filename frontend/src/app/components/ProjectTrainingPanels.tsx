@@ -2,7 +2,6 @@
 
 import type { HealthOut, IssueOut, Model, TrainStep } from "@/lib/client";
 import {
-  useAgentChat,
   type AgentMessage,
   type BeliefState,
 } from "@/lib/use-agent-chat";
@@ -1098,7 +1097,17 @@ type BottomTerminalPanelProps = {
   onConsoleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   /** Called when the panel's rendered height changes (e.g. tab switch, resize) */
   onPanelHeightChange?: (heightPx: number) => void;
-  /** Agent */
+  /** Agent — lifted state from useAgentChat */
+  agentMessages: AgentMessage[];
+  agentBeliefState: BeliefState | null;
+  agentIsLoading: boolean;
+  agentError: string | null;
+  agentSendMessage: (text: string) => void;
+  agentClearHistory: () => void;
+  /** Force the active tab (used by explain buttons) */
+  activeTab?: "logs" | "agent";
+  onActiveTabChange?: (tab: "logs" | "agent") => void;
+  /** Legacy — kept for reference but no longer used internally */
   sessionId: number | null;
   projectId: number | null;
 };
@@ -1116,11 +1125,21 @@ function BottomTerminalPanel({
   consoleBodyRef,
   onConsoleScroll,
   onPanelHeightChange,
+  agentMessages,
+  agentBeliefState,
+  agentIsLoading,
+  agentError,
+  agentSendMessage,
+  agentClearHistory,
+  activeTab: controlledActiveTab,
+  onActiveTabChange,
   sessionId,
   projectId,
 }: BottomTerminalPanelProps) {
-  // Tab state: "logs" (left) or "agent" (right)
-  const [activeTab, setActiveTab] = useState<"logs" | "agent">("logs");
+  // Tab state: controlled from parent if provided, otherwise internal
+  const [internalActiveTab, setInternalActiveTab] = useState<"logs" | "agent">("logs");
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+  const setActiveTab = onActiveTabChange ?? setInternalActiveTab;
   const panelRootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1134,15 +1153,19 @@ function BottomTerminalPanel({
     return () => ro.disconnect();
   }, [onPanelHeightChange]);
 
-  // ── Agent state ──
+  // ── Agent state (from lifted props) ──
   const [input, setInput] = useState("");
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const agentScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { messages, beliefState, isLoading: isAgentLoading, error: agentError, sendMessage, clearHistory } =
-    useAgentChat({ sessionId, projectId });
+  // Alias props to match existing variable names in the component
+  const messages = agentMessages;
+  const beliefState = agentBeliefState;
+  const isAgentLoading = agentIsLoading;
+  const sendMessage = agentSendMessage;
+  const clearHistory = agentClearHistory;
 
   // Auto-scroll agent output
   useEffect(() => {
