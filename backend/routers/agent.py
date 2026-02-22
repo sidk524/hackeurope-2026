@@ -13,6 +13,7 @@ import os
 import re
 import time
 import traceback
+import uuid
 from typing import Any
 
 import anthropic
@@ -88,6 +89,48 @@ class ProactiveInsight(BaseModel):
     model_used: str = ""
 
 
+# ── Qwen3 native tool-call helpers ────────────────────────────────────────────
+
+_TOOL_CALL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def _parse_qwen_tool_calls(content: str) -> list[dict]:
+    """Parse ``<tool_call>`` blocks from Qwen3 native content format."""
+    calls: list[dict] = []
+    for match in _TOOL_CALL_RE.finditer(content):
+        try:
+            data = json.loads(match.group(1))
+            calls.append({
+                "id": f"call_{uuid.uuid4().hex[:8]}",
+                "name": data.get("name", ""),
+                "arguments": data.get("arguments", {}),
+            })
+        except json.JSONDecodeError:
+            continue
+    return calls
+
+
+def _strip_think_blocks(text: str) -> str:
+    """Remove Qwen3 ``<think>…</think>`` reasoning blocks from text."""
+    return _THINK_RE.sub("", text).strip()
+
+
+def _execute_and_collect(
+    calls: list[dict],
+) -> list[tuple[dict, str]]:
+    """Execute a list of parsed tool calls and return (call, result_str) pairs."""
+    results: list[tuple[dict, str]] = []
+    for call in calls:
+        _log.info("Executing tool: %s(%s)", call["name"], call["arguments"])
+        result = execute_tool(call["name"], call["arguments"])
+        result_str = json.dumps(result, default=str)
+        if len(result_str) > 12000:
+            result_str = result_str[:12000] + '... [truncated]"}'
+        results.append((call, result_str))
+    return results
+
+
 # ── Tool-calling loop (Crusoe / OpenAI-compatible) ───────────────────────────
 
 def _run_tool_loop_openai(
@@ -97,7 +140,12 @@ def _run_tool_loop_openai(
 ) -> tuple[str, str]:
     """
     Run the tool-calling loop using the OpenAI-compatible Crusoe endpoint.
-    Returns (assistant_text, model_used).
+
+    Handles **both** structured ``tool_calls`` (standard OpenAI) and Qwen3's
+    native ``<tool_call>`` content tags.  Tool results are sent back through
+    the proper message format for each style.
+
+    Returns ``(assistant_text, model_used)``.
     """
     client = _get_crusoe_client()
 
@@ -119,16 +167,33 @@ def _run_tool_loop_openai(
                 max_tokens=4096,
             )
         except Exception as e:
-            _log.error("Crusoe API error: %s", e)
+            _log.error("Crusoe API error (iter %d): %s", iteration, e)
             raise
 
         choice = response.choices[0]
         msg = choice.message
+        content = msg.content or ""
 
-        # If there are tool calls, execute them and loop
+        # ── Path A: structured OpenAI tool_calls ──────────────────────
         if msg.tool_calls:
-            # Append the assistant message with tool_calls
-            oai_messages.append(msg.model_dump())
+            _log.info("Structured tool_calls detected (%d)", len(msg.tool_calls))
+            # Build a clean assistant dict (avoid extra fields from model_dump)
+            tc_dicts = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                }
+                for tc in msg.tool_calls
+            ]
+            oai_messages.append({
+                "role": "assistant",
+                "content": content if content else None,
+                "tool_calls": tc_dicts,
+            })
 
             for tc in msg.tool_calls:
                 fn_name = tc.function.name
@@ -136,23 +201,41 @@ def _run_tool_loop_openai(
                     fn_args = json.loads(tc.function.arguments)
                 except json.JSONDecodeError:
                     fn_args = {}
-
                 _log.info("Executing tool: %s(%s)", fn_name, fn_args)
                 result = execute_tool(fn_name, fn_args)
-
-                # Truncate large results to keep context manageable
                 result_str = json.dumps(result, default=str)
                 if len(result_str) > 12000:
                     result_str = result_str[:12000] + '... [truncated]"}'
-
                 oai_messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
                     "content": result_str,
                 })
-        else:
-            # No tool calls — we have the final answer
-            return msg.content or "", f"crusoe/{model}"
+            continue
+
+        # ── Path B: Qwen3 native <tool_call> tags in content ─────────
+        qwen_calls = _parse_qwen_tool_calls(content)
+        if qwen_calls:
+            _log.info(
+                "Qwen3 native <tool_call> detected (%d calls)", len(qwen_calls)
+            )
+            # Keep the assistant message exactly as the model produced it
+            oai_messages.append({"role": "assistant", "content": content})
+
+            # Execute tools and send results using <tool_response> tags
+            # which map to Qwen3's chat template expectations
+            pairs = _execute_and_collect(qwen_calls)
+            for _call, result_str in pairs:
+                oai_messages.append({
+                    "role": "user",
+                    "content": f"<tool_response>\n{result_str}\n</tool_response>",
+                })
+            continue
+
+        # ── Path C: no tool calls — final answer ─────────────────────
+        final = _strip_think_blocks(content)
+        _log.info("Final answer received (len=%d)", len(final))
+        return final, f"crusoe/{model}"
 
     # Exhausted iterations — return whatever we have
     return (
@@ -320,6 +403,9 @@ async def agent_chat(body: AgentChatRequest, request: Request):
             text, model_used = await run_in_threadpool(
                 _run_agent, system_prompt, messages
             )
+
+            # Strip any remaining <think> blocks from the response
+            text = _strip_think_blocks(text)
 
             belief = _extract_belief_state(text)
 
