@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TrainSession as PanelTrainSession } from "./ProjectTrainingPanels";
 import {
+  BottomTerminalPanel,
   ModelPanel,
   SessionIssuesPanel,
   SessionList,
@@ -43,7 +44,6 @@ function mapApiSessionToPanel(api: ApiTrainSession): PanelTrainSession {
   };
 }
 
-import AgentChatPanel from "./AgentChatPanel";
 import ProactiveInsightBanner, {
   useProactiveInsights,
   type InsightItem,
@@ -595,130 +595,28 @@ export default function ProjectsClient({
           </div>
         </div>
       </div>
-      {/* Agent chat panel */}
-      <AgentChatPanel
+
+      {/* ── Combined bottom panel: Runtime output (left tab) + Agent (right tab) ── */}
+      <BottomTerminalPanel
+        session={activeSession}
+        logs={logsForPanel}
+        logsLoading={isLogsLoading}
+        isOpen={isConsoleOpen}
+        onToggleOpen={() => setIsConsoleOpen((o) => !o)}
+        consoleHeight={consoleHeight}
+        onDragStart={handleDragStart}
+        consoleFollow={consoleFollow}
+        onToggleFollow={() => setConsoleFollow((f) => !f)}
+        consoleBodyRef={consoleBodyRef}
+        onConsoleScroll={(e) => {
+          const el = e.currentTarget;
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+          if (!atBottom && consoleFollow) setConsoleFollow(false);
+          if (atBottom && !consoleFollow) setConsoleFollow(true);
+        }}
         sessionId={selectedSessionId}
         projectId={selectedProjectId}
       />
-
-      {/* ── Fixed bottom logs console ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col shadow-[0_-4px_24px_rgba(0,0,0,0.4)]">
-        {/* Drag handle — always on top */}
-        <div
-          onMouseDown={handleDragStart}
-          className="group flex h-2 cursor-ns-resize items-center justify-center bg-zinc-900 hover:bg-zinc-800"
-          aria-hidden
-        >
-          <div className="h-0.5 w-8 rounded-full bg-zinc-700 group-hover:bg-zinc-500 transition-colors" />
-        </div>
-
-        {/* Header / toggle bar */}
-        <div
-          className="flex items-center justify-between border-t border-zinc-700 bg-zinc-900 px-5 py-2 cursor-pointer select-none"
-          onClick={() => setIsConsoleOpen((o) => !o)}
-        >
-          <div className="flex items-center gap-3">
-            {activeSession?.status === "running" ? (
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.5)] animate-pulse" aria-hidden />
-            ) : (
-              <span className="flex h-2 w-2 rounded-full bg-zinc-600" aria-hidden />
-            )}
-            <span className="font-mono text-xs font-semibold uppercase tracking-widest text-zinc-400">
-              Runtime output
-            </span>
-            {activeSession && (
-              <span className="rounded-full bg-zinc-800 px-2 py-0.5 font-mono text-[10px] text-zinc-500">
-                {activeSession.runName}
-              </span>
-            )}
-            {!isConsoleOpen && logsForPanel.some((l) => l.kind === "error" || l.level === "ERROR") && (
-              <span className="rounded-full bg-red-950/60 px-2 py-0.5 font-mono text-[10px] text-red-400">
-                errors
-              </span>
-            )}
-            {!isConsoleOpen && (
-              <span className="text-zinc-600 font-mono text-[10px]">
-                {isLogsLoading ? "loading…" : `${logsForPanel.length} lines`}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setConsoleFollow((f) => !f); }}
-              title={consoleFollow ? "Following — click to stop" : "Not following — click to follow"}
-              className={`rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest transition ${
-                consoleFollow
-                  ? "border-emerald-700 bg-emerald-950/50 text-emerald-400"
-                  : "border-zinc-700 bg-zinc-900 text-zinc-500 hover:border-zinc-500"
-              }`}
-            >
-              Follow
-            </button>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`text-zinc-500 transition-transform ${isConsoleOpen ? "rotate-180" : ""}`}
-              aria-hidden
-            >
-              <path d="m18 15-6-6-6 6" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Console body */}
-        {isConsoleOpen && (
-          <>
-          <div
-            ref={consoleBodyRef}
-            style={{ height: consoleHeight }}
-            className="overflow-y-auto bg-zinc-950 px-5 py-3 font-mono text-xs"
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
-              if (!atBottom && consoleFollow) setConsoleFollow(false);
-              if (atBottom && !consoleFollow) setConsoleFollow(true);
-            }}
-          >
-            {!activeSession ? (
-              <p className="text-zinc-600">Select a project to inspect live session logs.</p>
-            ) : isLogsLoading ? (
-              <p className="text-zinc-600 animate-pulse">Loading logs…</p>
-            ) : logsForPanel.length === 0 ? (
-              <p className="text-zinc-600">No logs yet.</p>
-            ) : (
-              logsForPanel.map((log) => (
-                <div key={log.id} className="flex flex-wrap gap-2 py-0.5">
-                  <span className="text-zinc-600">
-                    {new Date(log.ts).toLocaleTimeString()}
-                  </span>
-                  <span
-                    className={`font-semibold ${
-                      log.level === "ERROR" || log.kind === "error"
-                        ? "text-red-400"
-                        : log.level === "WARN"
-                          ? "text-amber-400"
-                          : "text-emerald-400"
-                    }`}
-                  >
-                    {log.level}
-                  </span>
-                  <span className="text-zinc-500">{log.module}:{log.lineno}</span>
-                  <span className="text-zinc-200">{log.msg}</span>
-                </div>
-              ))
-            )}
-          </div>
-          </>
-        )}
-      </div>
     </div>
   );
 }

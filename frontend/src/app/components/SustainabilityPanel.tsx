@@ -2,9 +2,9 @@
 
 import type { DiagnosticRunOut, SustainabilityInsight } from "@/lib/client";
 import {
-    getDiagnosticRunDiagnosticsRunsRunIdGetOptions,
-    listSessionDiagnosticRunsDiagnosticsSessionsSessionIdGetOptions,
-    runSessionDiagnosticsDiagnosticsSessionsSessionIdRunPostMutation,
+  getDiagnosticRunDiagnosticsRunsRunIdGetOptions,
+  listSessionDiagnosticRunsDiagnosticsSessionsSessionIdGetOptions,
+  runSessionDiagnosticsDiagnosticsSessionsSessionIdRunPostMutation,
 } from "@/lib/client/@tanstack/react-query.gen";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
