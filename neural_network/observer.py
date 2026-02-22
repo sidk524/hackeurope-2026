@@ -391,6 +391,10 @@ class Observer:
             "profiler": rec.get("profiler") or {},
             "memory": rec.get("memory") or {},
             "system": rec.get("system") or {},
+            "layer_health": rec.get("layer_health"),
+            "sustainability": rec.get("sustainability"),
+            "carbon_emissions": rec.get("carbon_emissions"),
+            "log_counts": rec.get("log_counts"),
         }
         url = f"{self._backend_base_url}/sessions/{self._backend_session_id}/step"
         body = json.dumps(payload).encode("utf-8")
