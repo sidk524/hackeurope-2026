@@ -898,13 +898,13 @@ function SessionIssuesPanel({
 
   return (
     <section
-      className={`rounded-3xl border bg-zinc-950/60 p-6 shadow-lg ${
+      className={`flex min-h-0 max-h-80 flex-col overflow-hidden rounded-3xl border bg-zinc-950/60 p-6 shadow-lg ${
         showGlow
           ? "border-red-500/50 shadow-[0_0_24px_-2px_rgba(239,68,68,0.4)]"
           : "border-zinc-800"
       }`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
             Run health
@@ -915,6 +915,7 @@ function SessionIssuesPanel({
           {badgeLabel}
         </span>
       </div>
+      <div className="dark-scrollbar min-h-0 flex-1 overflow-y-auto pr-2">
       {!session ? (
         <p className="mt-4 text-xs text-zinc-500">
           Select a run to view issues and suggested fixes.
@@ -930,7 +931,7 @@ function SessionIssuesPanel({
           No issues reported. Health score: {health.health_score}
         </p>
       ) : (
-        <div className="dark-scrollbar mt-4 grid max-h-96 gap-3 overflow-y-auto pr-2">
+        <div className="mt-4 grid gap-3">
           {health.issues.map((issue, idx) => (
             <div
               key={issue.id ?? idx}
@@ -970,6 +971,7 @@ function SessionIssuesPanel({
           ))}
         </div>
       )}
+      </div>
     </section>
   );
 }

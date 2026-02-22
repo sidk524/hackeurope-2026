@@ -50,6 +50,7 @@ def get_projects(session: SessionDep):
             TrainSession,
             TrainSession.id == latest_session_id_per_project.c.latest_session_id,
         )
+        .order_by(Project.id.desc())
     )
     rows = session.exec(query).all()
     return [

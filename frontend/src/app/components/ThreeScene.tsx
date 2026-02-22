@@ -301,11 +301,11 @@ export default function ThreeScene({ className = "", model }: ThreeSceneProps) {
               Math.round(toFinite(params.outFeatures, toFinite(params.units, 32)))
             );
             if (i === lastLinearIdx) {
-              seq.add(new TSP.layers.Output1d({ outputs: getClassLabels(units) }));
+              seq.add(new TSP.layers.Output1d({ units, outputs: getClassLabels(units) }));
               layerMeta.push({
                 id: layer.id || `output_${i}`,
                 type: "Output1d",
-                params: { outputs: getClassLabels(units) },
+                params: { units, outputs: getClassLabels(units) },
               });
             } else {
               seq.add(new TSP.layers.Dense({ units }));
@@ -322,16 +322,16 @@ export default function ThreeScene({ className = "", model }: ThreeSceneProps) {
 
         if (added === 0) {
           seq.add(new TSP.layers.Dense({ units: 64 }));
-          seq.add(new TSP.layers.Output1d({ outputs: getClassLabels(10) }));
+          seq.add(new TSP.layers.Output1d({ units: 10, outputs: getClassLabels(10) }));
           layerMeta.push({ id: "dense_fallback", type: "Dense", params: { units: 64 } });
           layerMeta.push({
             id: "output_fallback",
             type: "Output1d",
-            params: { outputs: getClassLabels(10) },
+            params: { units: 10, outputs: getClassLabels(10) },
           });
         } else if (lastLinearIdx < 0) {
-          seq.add(new TSP.layers.Output1d({ outputs: getClassLabels(10) }));
-          layerMeta.push({ id: "output", type: "Output1d", params: { outputs: getClassLabels(10) } });
+          seq.add(new TSP.layers.Output1d({ units: 10, outputs: getClassLabels(10) }));
+          layerMeta.push({ id: "output", type: "Output1d", params: { units: 10, outputs: getClassLabels(10) } });
         }
 
         const tooltip = document.createElement("div");
@@ -362,8 +362,11 @@ export default function ThreeScene({ className = "", model }: ThreeSceneProps) {
           canvas = renderer?.sceneArea ?? null;
           const raycaster = renderer?.raycaster;
           const camera = renderer?.camera;
-          const sceneChildren = renderer?.scene?.children;
+          const scene = renderer?.scene as { rotation?: { z: number }; children?: unknown[] } | undefined;
+          const sceneChildren = scene?.children;
           if (!canvas || !raycaster || !camera || !sceneChildren) return;
+          // Rotate scene so the network flows sideways (left–right) instead of upwards
+          if (scene?.rotation) scene.rotation.z = Math.PI / 2;
           let activeKey = "";
           const hide = () => {
             if (!tooltipRef.current) return;

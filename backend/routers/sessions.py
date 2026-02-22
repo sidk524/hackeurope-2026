@@ -327,7 +327,7 @@ def _run_step_diagnostics(session_id: int) -> None:
                 )
                 train_session.status = (
                     SessionStatus.pending
-                    if has_critical or has_warning_cluster or True
+                    if has_critical or has_warning_cluster
                     else SessionStatus.running
                 )
                 db.add(train_session)

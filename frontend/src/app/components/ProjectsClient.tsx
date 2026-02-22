@@ -21,7 +21,6 @@ import {
   BottomTerminalPanel,
   ModelPanel,
   SessionIssuesPanel,
-  SessionList,
   TrainSessionPanel,
   TrainStepList
 } from "./ProjectTrainingPanels";
@@ -110,7 +109,14 @@ export default function ProjectsClient({
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     getStoredProjectId
   );
-  const [isProjectsOpen, setIsProjectsOpen] = useState(true);
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const [sessionDropdownOpen, setSessionDropdownOpen] = useState(false);
+  const [newProjectHover, setNewProjectHover] = useState(false);
+  const [newProjectInputFocused, setNewProjectInputFocused] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
+  const sessionDropdownRef = useRef<HTMLDivElement>(null);
+  const newProjectInputRef = useRef<HTMLInputElement>(null);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [consoleHeight, setConsoleHeight] = useState(208); // px
   const [consoleFollow, setConsoleFollow] = useState(true);
@@ -246,6 +252,18 @@ export default function ProjectsClient({
     }
   }, [selectedProjectId, sessionsForProject, selectedSessionId]);
 
+  // Close header dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (projectDropdownRef.current?.contains(target) || sessionDropdownRef.current?.contains(target)) return;
+      setProjectDropdownOpen(false);
+      setSessionDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const activeSession = useMemo(
     () =>
       selectedProject && sessionsForProject.length > 0
@@ -330,11 +348,21 @@ export default function ProjectsClient({
     consoleBodyRef.current.scrollTop = consoleBodyRef.current.scrollHeight;
   }, [logsForPanel, consoleFollow]);
 
-  const handleNewProject = () => {
+  const isNewProjectExpanded = newProjectHover || newProjectInputFocused;
+
+  const handleNewProject = (name?: string) => {
     const nextNumber = projects.length + 1;
-    createProjectMutation.mutate({
-      body: { name: `Project ${nextNumber}` },
-    });
+    const projectName =
+      (name ?? newProjectName)?.trim() || `Project ${nextNumber}`;
+    createProjectMutation.mutate(
+      { body: { name: projectName } },
+      {
+        onSuccess: () => {
+          setNewProjectName("");
+          setNewProjectInputFocused(false);
+        },
+      }
+    );
   };
 
   const handleRefreshAll = () => {
@@ -382,8 +410,8 @@ export default function ProjectsClient({
         </button>
       </div>
       <div className="relative isolate overflow-hidden">
-        <header className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center justify-between gap-4 px-6 pt-10">
-          <div className="flex items-center gap-3">
+        <header className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center justify-between gap-4 px-6 pt-6">
+          <div className="flex items-center gap-4">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sm font-bold uppercase text-zinc-900">
               A
             </div>
@@ -393,20 +421,226 @@ export default function ProjectsClient({
               </p>
               <h1 className="text-xl font-semibold">Projects</h1>
             </div>
+            <div className="h-8 w-px bg-zinc-600" aria-hidden />
+            <div className="relative flex flex-col gap-1" ref={projectDropdownRef}>
+              <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">
+                Project
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setProjectDropdownOpen((o) => !o);
+                  setSessionDropdownOpen(false);
+                }}
+                aria-expanded={projectDropdownOpen}
+                aria-haspopup="listbox"
+                className="flex min-w-[200px] items-center justify-between gap-2 rounded-xl border-2 border-zinc-600 bg-zinc-800 px-4 py-3 text-left text-sm font-medium text-white shadow-lg shadow-black/25 transition hover:border-zinc-500 hover:bg-zinc-700 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-zinc-900"
+              >
+                <span className="truncate">
+                  {isProjectsLoading
+                    ? "Loading…"
+                    : selectedProject?.name ?? "Select project"}
+                </span>
+                <svg
+                  className={`h-4 w-4 shrink-0 text-zinc-400 transition ${projectDropdownOpen ? "rotate-180" : ""}`}
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              {projectDropdownOpen ? (
+                <div
+                  role="listbox"
+                  className="absolute left-0 top-full z-50 mt-1.5 max-h-52 min-w-[220px] overflow-y-auto overflow-x-hidden rounded-xl border-2 border-zinc-600 bg-zinc-900 shadow-xl ring-1 ring-black/20"
+                >
+                  {isProjectsError ? (
+                    <div className="px-4 py-3 text-xs text-red-400">
+                      Failed to load
+                    </div>
+                  ) : projects.length === 0 && !isProjectsLoading ? (
+                    <div className="px-4 py-3 text-xs text-zinc-500">
+                      No projects yet
+                    </div>
+                  ) : (
+                    projects.map((project) => (
+                      <button
+                        key={project.id ?? project.name}
+                        type="button"
+                        role="option"
+                        aria-selected={selectedProjectId === project.id}
+                        onClick={() => {
+                          if (project.id != null) {
+                            handleSelectProject(project.id);
+                            setProjectDropdownOpen(false);
+                          }
+                        }}
+                        className={`flex w-full flex-col gap-0.5 px-4 py-2.5 text-left text-sm transition hover:bg-zinc-800 ${
+                          selectedProjectId === project.id
+                            ? "bg-zinc-800 text-zinc-100"
+                            : "text-zinc-300"
+                        }`}
+                      >
+                        <span className="font-medium">{project.name}</span>
+                        {project.id != null ? (
+                          <span className="text-xs text-zinc-500">
+                            ID {project.id}
+                          </span>
+                        ) : null}
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <div className="relative flex flex-col gap-1" ref={sessionDropdownRef}>
+              <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">
+                Session
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionDropdownOpen((o) => !o);
+                  setProjectDropdownOpen(false);
+                }}
+                disabled={!selectedProjectId}
+                aria-expanded={sessionDropdownOpen}
+                aria-haspopup="listbox"
+                className="flex min-w-[220px] items-center justify-between gap-2 rounded-xl border-2 border-zinc-600 bg-zinc-800 px-4 py-3 text-left text-sm font-medium text-white shadow-lg shadow-black/25 transition hover:border-zinc-500 hover:bg-zinc-700 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span className="truncate">
+                  {!selectedProjectId
+                    ? "Select project first"
+                    : isSessionsLoading
+                      ? "Loading…"
+                      : activeSession?.runName ?? "Select session"}
+                </span>
+                <svg
+                  className={`h-4 w-4 shrink-0 text-zinc-400 transition ${sessionDropdownOpen ? "rotate-180" : ""}`}
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              {sessionDropdownOpen && selectedProjectId ? (
+                <div
+                  role="listbox"
+                  className="absolute left-0 top-full z-50 mt-1.5 max-h-52 min-w-[260px] overflow-y-auto overflow-x-hidden rounded-xl border-2 border-zinc-600 bg-zinc-900 shadow-xl ring-1 ring-black/20"
+                >
+                  {sessionsForProject.length === 0 && !isSessionsLoading ? (
+                    <div className="px-4 py-3 text-xs text-zinc-500">
+                      No runs yet
+                    </div>
+                  ) : (
+                    sessionsForProject.map((session) => (
+                      <button
+                        key={session.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selectedSessionId === session.id}
+                        onClick={() => {
+                          setSelectedSessionId(session.id);
+                          setSessionDropdownOpen(false);
+                        }}
+                        className={`flex w-full flex-col gap-0.5 px-4 py-2.5 text-left text-sm transition hover:bg-zinc-800 ${
+                          selectedSessionId === session.id
+                            ? "bg-zinc-800 text-zinc-100"
+                            : "text-zinc-300"
+                        }`}
+                      >
+                        <span className="font-medium">{session.runName}</span>
+                        <span className="text-xs text-zinc-500">
+                          {session.runId} · {session.status}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
 
-          <div className="flex flex-1 items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={handleNewProject}
-              disabled={createProjectMutation.isPending}
-              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-zinc-900 shadow-lg shadow-white/10 disabled:opacity-60"
+          <div className="flex items-center justify-end gap-3">
+            <div
+              onMouseEnter={() => setNewProjectHover(true)}
+              onMouseLeave={() => setNewProjectHover(false)}
+              className="flex overflow-hidden rounded-full bg-white text-zinc-900 shadow-lg shadow-white/10"
             >
-              {createProjectMutation.isPending ? "Creating…" : "New project"}
-            </button>
+              {/* Collapsed: "New project" button — width animates to 0 when expanded */}
+              <div
+                className="flex shrink-0 overflow-hidden transition-[width] duration-300 ease-out"
+                style={{ width: isNewProjectExpanded ? 0 : 130 }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewProjectHover(true);
+                    setNewProjectInputFocused(true);
+                    setTimeout(() => newProjectInputRef.current?.focus(), 50);
+                  }}
+                  disabled={createProjectMutation.isPending}
+                  className="w-[130px] shrink-0 whitespace-nowrap px-5 py-2 text-left text-sm font-semibold disabled:opacity-60"
+                >
+                  {createProjectMutation.isPending ? "Creating…" : "New project"}
+                </button>
+              </div>
+              {/* Expanded: input + Create — width animates from 0 when expanded */}
+              <div
+                className="flex shrink-0 items-center overflow-hidden transition-[width] duration-300 ease-out"
+                style={{ width: isNewProjectExpanded ? 300 : 0 }}
+              >
+                <div className="flex w-[300px] items-center">
+                  <input
+                    ref={newProjectInputRef}
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    onFocus={() => setNewProjectInputFocused(true)}
+                    onBlur={() => setNewProjectInputFocused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleNewProject();
+                      }
+                      if (e.key === "Escape") {
+                        setNewProjectInputFocused(false);
+                        newProjectInputRef.current?.blur();
+                      }
+                    }}
+                    placeholder="Project name"
+                    className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleNewProject()}
+                    disabled={createProjectMutation.isPending}
+                    className="shrink-0 px-4 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                  >
+                    {createProjectMutation.isPending ? "Creating…" : "Create"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </header>
-        <div className="mx-auto w-full max-w-[1700px] px-6 pb-12 pt-10">
+        <div className="mx-auto w-full max-w-[1700px] px-6 pb-6 pt-4">
           {/* Proactive insight banners */}
           <div className="mb-4">
             <ProactiveInsightBanner
@@ -418,143 +652,16 @@ export default function ProjectsClient({
               }}
             />
           </div>
-          <div className="grid gap-6 xl:grid-cols-12">
-            <div className="space-y-6 xl:col-span-3">
-            <section className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 shadow-lg">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                    Projects
-                  </p>
-                  <h2 className="text-lg font-semibold">Your projects</h2>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-zinc-500">
-                    {isProjectsLoading
-                      ? "…"
-                      : isProjectsError
-                        ? "Error"
-                        : `${projects.length} total`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsProjectsOpen((prev) => !prev)}
-                    aria-expanded={isProjectsOpen}
-                    className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-300 transition hover:border-zinc-600"
-                  >
-                    {isProjectsOpen ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-
-              {isProjectsOpen ? (
-                isProjectsError ? (
-                  <div className="mt-4 rounded-2xl border border-red-900/50 bg-red-950/20 px-4 py-5 text-sm text-red-300">
-                    Failed to load projects:{" "}
-                    {projectsError instanceof Error
-                      ? projectsError.message
-                      : "Unknown error"}
-                  </div>
-                ) : projects.length === 0 && !isProjectsLoading ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/40 px-4 py-5 text-sm text-zinc-400">
-                    No projects yet. Click "New project" to create one.
-                  </div>
-                ) : (
-                  <div className="mt-4 grid gap-3">
-                    {isProjectsLoading ? (
-                      <div className="py-4 text-center text-sm text-zinc-500">
-                        Loading projects…
-                      </div>
-                    ) : (
-                      projects.map((project) => (
-                        <button
-                          type="button"
-                          key={project.id ?? project.name}
-                          onClick={() =>
-                            project.id != null && handleSelectProject(project.id)
-                          }
-                          aria-pressed={
-                            selectedProjectId === project.id
-                          }
-                          className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${
-                            selectedProjectId === project.id
-                              ? "border-white/70 bg-white/10 shadow-lg shadow-white/10"
-                              : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
-                          }`}
-                        >
-                          <div>
-                            <p className="text-sm font-semibold text-zinc-100">
-                              {project.name}
-                            </p>
-                            <p className="text-xs text-zinc-500">
-                              Created{" "}
-                              {project.created_at
-                                ? new Date(
-                                    project.created_at
-                                  ).toLocaleString()
-                                : "—"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs font-medium">
-                            {"status" in project && project.status != null ? (
-                              <span className="flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900/80 px-2.5 py-1 text-zinc-300">
-                                {project.status === "pending" ? (
-                                  <span className="text-[10px] font-medium uppercase tracking-wider">
-                                    PENDING ACTION
-                                  </span>
-                                ) : project.status === "running" ? (
-                                  <>
-                                    <span
-                                      className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_4px_rgba(52,211,153,0.5)] animate-pulse"
-                                      aria-hidden
-                                    />
-                                    <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-400">
-                                      running
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className="text-[10px] uppercase tracking-[0.15em]">
-                                    {project.status}
-                                  </span>
-                                )}
-                              </span>
-                            ) : null}
-                            {selectedProjectId === project.id ? (
-                              <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/80">
-                                Selected
-                              </span>
-                            ) : null}
-                            {project.id != null ? (
-                              <span className="rounded-full bg-zinc-950 px-3 py-1 text-zinc-300">
-                                <span className="mr-2 text-zinc-500">ID</span>
-                                <span className="font-mono tracking-tight">
-                                  {project.id}
-                                </span>
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )
-              ) : (
-                <p className="mt-4 text-xs text-zinc-500">
-                  Project list hidden.
-                </p>
-              )}
-            </section>
-            <ProjectTrendChart projectId={selectedProjectId} />
+          {/* Row 1: visualization | architecture */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="h-[420px]">
+              <ThreeScene model={modelForPanel ?? null} />
             </div>
-            <div className="space-y-6 xl:col-span-5">
-            <ThreeScene model={modelForPanel ?? null} />
-            <SessionList
-              selectedProject={selectedProject}
-              sessions={sessionsForProject}
-              sessionsLoading={isSessionsLoading}
-              selectedSessionId={selectedSessionId}
-              onSelectSession={setSelectedSessionId}
-            />
+            <ModelPanel session={activeSession} model={modelForPanel} />
+          </div>
+
+          {/* Row 2: run overview | issues | sustainability */}
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <TrainSessionPanel
               session={activeSession}
               onResume={
@@ -577,21 +684,22 @@ export default function ProjectsClient({
               }
               actionPending={sessionActionMutation.isPending}
             />
-            </div>
-            <div className="space-y-6 xl:col-span-4">
-            <ModelPanel session={activeSession} model={modelForPanel} />
-            <TrainStepList
-              session={activeSession}
-              steps={apiSteps}
-              stepsLoading={isStepsLoading}
-            />
             <SessionIssuesPanel
               session={activeSession}
               health={healthData ?? null}
               healthLoading={isHealthLoading}
             />
             <SustainabilityPanel sessionId={selectedSessionId} />
-            </div>
+          </div>
+
+          {/* Row 3: recent steps | project trend */}
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <TrainStepList
+              session={activeSession}
+              steps={apiSteps}
+              stepsLoading={isStepsLoading}
+            />
+            <ProjectTrendChart projectId={selectedProjectId} />
           </div>
         </div>
       </div>
