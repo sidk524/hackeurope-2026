@@ -170,9 +170,14 @@ export default function ProjectsClient({
     enabled: true,
     onEvent: handleInsightEvent,
   });
+  // Initialize to null so server and client match (avoid hydration mismatch).
+  // Sync from localStorage in useEffect so first paint is consistent.
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
-    getStoredProjectId
+    null
   );
+  useEffect(() => {
+    setSelectedProjectId(getStoredProjectId());
+  }, []);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [sessionDropdownOpen, setSessionDropdownOpen] = useState(false);
   const [newProjectHover, setNewProjectHover] = useState(false);
