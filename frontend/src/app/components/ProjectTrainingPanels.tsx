@@ -495,7 +495,7 @@ function ModelPanel({ session, model }: ModelPanelProps) {
           Session {session ? `#${session.id}` : "—"}
         </span>
       </div>
-      <div className="mt-4 flex-1 overflow-auto">{body}</div>
+      <div className="dark-scrollbar mt-4 flex-1 overflow-auto">{body}</div>
     </section>
   );
 }
@@ -900,7 +900,7 @@ function SessionIssuesPanel({
 
   return (
     <section
-      className={`flex min-h-0 max-h-80 flex-col overflow-hidden rounded-3xl border bg-zinc-950/60 p-6 shadow-lg ${
+      className={`flex min-h-0 max-h-[650px] flex-col overflow-hidden rounded-3xl border bg-zinc-950/60 p-6 shadow-lg ${
         showGlow
           ? "border-red-500/50 shadow-[0_0_24px_-2px_rgba(239,68,68,0.4)]"
           : "border-zinc-800"
