@@ -7,6 +7,7 @@ type ThreeSceneProps = {
   className?: string;
   model?: Model | null;
   sustainabilityScores?: Record<string, number>;
+  layerIssuesById?: Record<string, string[]>;
 };
 
 type NetworkLayer = {
@@ -62,6 +63,15 @@ function scoreToColor(score: number): string {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function escapeHtml(input: string): string {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function tintMaterial(material: unknown, color: string): void {
@@ -275,7 +285,12 @@ function parseModel(model: Model | null | undefined): ParsedNetwork {
   return { name: runName, layers: enriched };
 }
 
-export default function ThreeScene({ className = "", model, sustainabilityScores = {} }: ThreeSceneProps) {
+export default function ThreeScene({
+  className = "",
+  model,
+  sustainabilityScores = {},
+  layerIssuesById = {},
+}: ThreeSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const overlayContainerRef = useRef<HTMLDivElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -472,7 +487,7 @@ export default function ThreeScene({ className = "", model, sustainabilityScores
               hide();
               return;
             }
-            const key = `${meta.id}|${meta.type}|${JSON.stringify(meta.params || {})}`;
+            const key = `${meta.id}|${meta.type}|${JSON.stringify(meta.params || {})}|${JSON.stringify(layerIssuesById[meta.id] || [])}`;
             if (key !== activeKey && tooltipRef.current) {
               const paramsLines = Object.entries(meta.params || {})
                 .filter(([, v]) => v !== undefined && v !== null && v !== false)
@@ -487,7 +502,15 @@ export default function ThreeScene({ className = "", model, sustainabilityScores
                 typeof scoreValue === "number"
                   ? `<div style="opacity:.95;margin-bottom:4px">sustainability: <span style="font-weight:600">${Math.max(0, Math.min(100, Math.round(scoreValue)))}/100</span></div>`
                   : "";
-              tooltipRef.current.innerHTML = `<div style="font-weight:600;margin-bottom:4px">${meta.id}</div><div style="opacity:.85;margin-bottom:4px">type: ${meta.type}</div>${sustainabilityLine}${paramsLines}`;
+              const issueLines = (layerIssuesById[meta.id] ?? [])
+                .slice(0, 5)
+                .map((text) => `<div style="margin-top:2px">- ${escapeHtml(text)}</div>`)
+                .join("");
+              const issuesBlock =
+                issueLines.length > 0
+                  ? `<div style="margin-top:6px"><div style="opacity:.85;margin-bottom:2px">issues:</div>${issueLines}</div>`
+                  : "";
+              tooltipRef.current.innerHTML = `<div style="font-weight:600;margin-bottom:4px">${meta.id}</div><div style="opacity:.85;margin-bottom:4px">type: ${meta.type}</div>${sustainabilityLine}${issuesBlock}${paramsLines}`;
               activeKey = key;
             }
             if (tooltipRef.current) {
@@ -518,7 +541,7 @@ export default function ThreeScene({ className = "", model, sustainabilityScores
       if (modelRenderer?.stopAnimate) modelRenderer.stopAnimate();
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, [model, isExpanded, sustainabilityScores]);
+  }, [model, isExpanded, sustainabilityScores, layerIssuesById]);
 
   return (
     <>

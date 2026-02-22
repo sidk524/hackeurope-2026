@@ -426,6 +426,32 @@ export default function ProjectsClient({
     return scores;
   }, [healthData]);
 
+  const layerIssuesById = useMemo(() => {
+    const issues = healthData?.issues ?? [];
+    const byLayer = new Map<string, Set<string>>();
+    for (const issue of issues) {
+      const layerIds = linkedLayerIds(issue as { layer_id?: unknown; metric_key?: unknown; metric_value?: unknown });
+      if (layerIds.length === 0) continue;
+      const severity = (issue as { severity?: unknown }).severity;
+      const title = (issue as { title?: unknown }).title;
+      const metricKey = (issue as { metric_key?: unknown }).metric_key;
+      const severityLabel = typeof severity === "string" ? severity.toUpperCase() : "ISSUE";
+      const titleLabel = typeof title === "string" ? title : "Layer issue";
+      const metricLabel = typeof metricKey === "string" && metricKey.length > 0 ? ` (${metricKey})` : "";
+      const label = `${severityLabel}: ${titleLabel}${metricLabel}`;
+      for (const layerId of layerIds) {
+        const set = byLayer.get(layerId) ?? new Set<string>();
+        set.add(label);
+        byLayer.set(layerId, set);
+      }
+    }
+    const out: Record<string, string[]> = {};
+    for (const [layerId, labels] of byLayer.entries()) {
+      out[layerId] = Array.from(labels);
+    }
+    return out;
+  }, [healthData]);
+
   const logsForPanel = useMemo(() => {
     return apiLogs.map((log) => ({
       id: log.id ?? 0,
@@ -763,7 +789,11 @@ export default function ProjectsClient({
           {/* Row 1: visualization | architecture */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="h-[420px]">
-              <ThreeScene model={modelForPanel ?? null} sustainabilityScores={sustainabilityScores} />
+            <ThreeScene
+              model={modelForPanel ?? null}
+              sustainabilityScores={sustainabilityScores}
+              layerIssuesById={layerIssuesById}
+            />
             </div>
             <ModelPanel session={activeSession} model={modelForPanel} />
           </div>
