@@ -495,7 +495,7 @@ function ModelPanel({ session, model }: ModelPanelProps) {
           Session {session ? `#${session.id}` : "—"}
         </span>
       </div>
-      <div className="mt-4 flex-1 overflow-auto">{body}</div>
+      <div className="dark-scrollbar mt-4 flex-1 overflow-auto">{body}</div>
     </section>
   );
 }
